@@ -66,6 +66,7 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
   }
 
   else if (op == ARMCI_FETCH_AND_ADD || op == ARMCI_FETCH_AND_ADD_LONG) {
+#if (MPI_VERSION < 3)
     long fetch_val_l, new_val_l;
     int  fetch_val_i, new_val_i;
     
@@ -81,6 +82,32 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
     PARMCI_Put(is_long ? (void*) &new_val_l : (void*) &new_val_i, prem, 
               is_long ? sizeof(long) : sizeof(int), proc);
     ARMCIX_Unlock_hdl(mreg->rmw_mutex, 0, proc);
+#else
+    long fetch_val_l, add_val_l = value;
+    int  fetch_val_i, add_val_i = value;
+    
+    gmr_t *src_mreg, *dst_mreg;
+ 
+    dst_mreg = gmr_lookup(prem, proc);
+
+    ARMCII_Assert_msg(dst_mreg != NULL, "Invalid remote pointer");
+ 
+    /* If NOGUARD is set, assume the buffer is not shared */
+    if (ARMCII_GLOBAL_STATE.shr_buf_method != ARMCII_SHR_BUF_NOGUARD)
+      src_mreg = gmr_lookup(ploc, ARMCI_GROUP_WORLD.rank);
+    else
+      src_mreg = NULL;
+
+    gmr_lock(dst_mreg, proc);
+    gmr_fetch_and_op(dst_mreg, 
+                     is_long ? (void*) &add_val_l   : (void*) &add_val_i   /* src */, 
+                     is_long ? (void*) &fetch_val_l : (void*) &fetch_val_i /* out */, 
+                     prem /* dst */, 
+                     is_long ? MPI_LONG : MPI_INT, 
+                     MPI_SUM, 
+                     proc);
+    gmr_unlock(dst_mreg, proc);
+#endif
 
     if (is_long)
       *(long*) ploc = fetch_val_l;
