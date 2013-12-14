@@ -59,11 +59,11 @@ int   ARMCI_PutS_flag(void *src_ptr, int src_stride_ar[/*stride_levels*/],
                  int *flag, int value, int proc);
 
 
-/** Non-blocking ops.  MPI-2 forces remote completion on everything so these all
-  * currently behave the same as the blocking ops.
-  */
-
-typedef int armci_hdl_t;
+typedef struct armci_hdl_s
+{
+    int target; /* we do not actually support individual completion */
+}
+armci_hdl_t;
 
 void  ARMCI_INIT_HANDLE(armci_hdl_t *hdl);
 void  ARMCI_SET_AGGREGATE_HANDLE(armci_hdl_t* handle);
