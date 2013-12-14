@@ -190,6 +190,7 @@ int gmr_sync(gmr_t *mreg) {
   return 0;
 }
 
+#if 0
 /** One-sided put operation.  Source buffer must be private.
   *
   * @param[in] mreg   Memory region
@@ -362,3 +363,4 @@ int gmr_iaccumulate_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype sr
 
   return 0;
 }
+#endif
