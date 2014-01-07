@@ -20,7 +20,7 @@ static void * Progress_function(void * input)
     while (progress_active)
     {
         result = PAMI_Context_trylock_advancev(&(a1contexts[remote_context_offset]), 1, 10000000);
-        TEST_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
+        A1_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
         usleep(1);
     }
 
