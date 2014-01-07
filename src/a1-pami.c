@@ -19,8 +19,8 @@ static void * Progress_function(void * input)
 
     while (progress_active)
     {
-        result = PAMI_Context_trylock_advancev(&(a1contexts[remote_context_offset]), 1, 10000000);
-        A1_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
+        result = PAMI_Context_trylock_advancev(&(a1contexts[remote_context_offset]), 1, 1);
+        A1_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"Progress_function: PAMI_Context_trylock_advancev");
         usleep(1);
     }
 
@@ -50,6 +50,9 @@ int A1_Initialize(void)
     const size_t world_rank = config[1].value.intval;
     const size_t ncontexts  = config[2].value.intval;
     A1_ASSERT(ncontexts >= NUM_CONTEXTS,"available a1contexts >= NUM_CONTEXTS");
+
+    /* this is for debug printing only */
+    g_world_rank = world_rank;
 
     a1contexts = (pami_context_t *) malloc( NUM_CONTEXTS * sizeof(pami_context_t) );
     A1_ASSERT(a1contexts != NULL,"A1 a1contexts malloc");
@@ -151,10 +154,9 @@ int A1_Rmw(int                target,
     pami_rmw_t rmw;
     memset(&rmw, 0, sizeof(pami_rmw_t));
 
-    int active = 1;
-    rmw.cookie  = (void*)&active;
-    rmw.done_fn = cb_done;
-
+    volatile int active = 1;
+    rmw.cookie    = (void*)&active;
+    rmw.done_fn   = cb_done;
     rmw.value     = source_in;
     rmw.local     = source_out;
     rmw.remote    = target_ptr;
@@ -162,13 +164,14 @@ int A1_Rmw(int                target,
     rmw.operation = op;
     rmw.dest      = ep;
   
-    pami_context_t lcontext = 0;
-
     rc = PAMI_Rmw(a1contexts[local_context_offset], &rmw);
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Rmw");
 
-    while (active)
-      PAMI_Context_trylock_advancev(&(a1contexts[local_context_offset]), 1, 100);
+    while (active) {
+      rc = PAMI_Context_trylock_advancev(&(a1contexts[local_context_offset]), 1, 1);
+      A1_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
+      usleep(1);
+    }
 
     return 0;
 }

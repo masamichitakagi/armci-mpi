@@ -12,8 +12,10 @@ const int remote_context_offset = 1;
 extern pami_client_t a1client;
 extern pami_context_t * a1contexts;
 
-static void cb_done (void * ctxt, void * clientdata, pami_result_t err)
+static void cb_done(void * ctxt, void * clientdata, pami_result_t err)
 {
+  printf("cb_done \n");
+  fflush(stdout);
   int * active = (int *) clientdata;
   (*active)--;
 }

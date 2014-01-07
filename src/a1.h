@@ -5,7 +5,7 @@
 #include "a1-types.h"
 #include "a1-api.h"
 
-#define PRINT_SUCCESS 0
+#define PRINT_SUCCESS 1
 
 #ifdef DEBUG
 #define A1_ASSERT(c,m) \
