@@ -109,8 +109,8 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
 #else
     size_t count = 1;
     A1_Rmw(proc,
-           is_long ? (void*) &src_val_l : (void*) &src_val_i /* src */,
-           is_long ? (void*) &out_val_l : (void*) &out_val_i /* out */,
+           is_long ? (void*) &add_val_l   : (void*) &add_val_i   /* src */,
+           is_long ? (void*) &fetch_val_l : (void*) &fetch_val_i /* out */,
            prem /* dst */, count, rop, type);
 #endif
 
