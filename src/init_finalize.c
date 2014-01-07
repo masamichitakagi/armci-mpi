@@ -184,6 +184,8 @@ int PARMCI_Init(void) {
     MPI_Barrier(ARMCI_GROUP_WORLD.comm);
   }
 
+  A1_Initialize();
+
   return 0;
 }
 
@@ -276,6 +278,8 @@ int PARMCI_Finalize(void) {
   ARMCI_Cleanup();
 
   ARMCI_Group_free(&ARMCI_GROUP_WORLD);
+
+  A1_Initialize();
 
   return 0;
 }
