@@ -1,3 +1,8 @@
+#ifndef A1_API_H
+#define A1_API_H
+
+#include "a1-types.h"
+
 /*
  * Initialize the A1 Library
  */
@@ -31,4 +36,4 @@ int A1_Rmw(int                target,
            A1_atomic_op_t     op,
            A1_datatype_t      type);
 
-
+#endif // A1_API_H

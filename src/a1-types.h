@@ -1,3 +1,6 @@
+#ifndef A1_TYPES_H
+#define A1_TYPES_H
+
 typedef enum
 {
   A1_INT32,  /**< int32            */
@@ -13,3 +16,5 @@ typedef enum
   A1_FETCH_AND_ADD,
   A1_SWAP,
 } A1_atomic_op_t;
+
+#endif // A1_TYPES_H
