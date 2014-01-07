@@ -125,34 +125,8 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
   MPI_Group_free(&world_group);
   MPI_Group_free(&alloc_group);
 
-#if MPI_VERSION < 3
   /* Create the RMW mutex: Keeps RMW operations atomic wrt each other */
   mreg->rmw_mutex = ARMCIX_Create_mutexes_hdl(1, group);
-#else
-  {
-    int lock_assert = 0;
-
-    if (   ( mreg->access_mode & ARMCIX_MODE_CONFLICT_FREE )
-        && ( mreg->access_mode & ARMCIX_MODE_NO_LOAD_STORE ) )
-      {
-        /* Only non-conflicting RMA accesses allowed. */
-        lock_assert = MPI_MODE_NOCHECK;
-      } else {
-          lock_assert = 0;
-      }
-    MPI_Win_lock_all(lock_assert, mreg->window);
-
-    mreg->lock_state  = GMR_LOCK_ALL;
-    mreg->lock_target = -1;
-  }
-#endif
-
-  {
-    int attribute_val, attr_flag;
-    /* this function will always return flag=false in MPI-2 */
-    MPI_Win_get_attr(mreg->window, MPI_WIN_MODEL, (void *)&attribute_val, &attr_flag);
-    mreg->memory_model = (attr_flag && attribute_val==MPI_WIN_UNIFIED) ? GMR_MODEL_UNIFIED : GMR_MODEL_SEPARATE;
-  }
 
   /* Append the new region onto the region list */
   if (gmr_list == NULL) {
@@ -179,10 +153,9 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
   */
 void gmr_destroy(gmr_t *mreg, ARMCI_Group *group) {
   int   search_proc_in, search_proc_out, search_proc_out_grp;
-  void *search_base = NULL;
+  void *search_base;
   int   alloc_me, alloc_nproc;
   int   world_me, world_nproc;
-  int   gmr_locked = 0;
 
   MPI_Comm_rank(group->comm, &alloc_me);
   MPI_Comm_size(group->comm, &alloc_nproc);
@@ -225,14 +198,6 @@ void gmr_destroy(gmr_t *mreg, ARMCI_Group *group) {
   switch (mreg->lock_state) {
     case GMR_LOCK_UNLOCKED:
       break;
-    case GMR_LOCK_SHARED:
-      ARMCII_Warning("Attempting to destroy a window that is locked (LOCK_SHARED) \n");
-      break;
-    case GMR_LOCK_ALL:
-      /* GMR-3 always hits this path and it's okay.  We unlock later.
-       * ARMCII_Warning("Attempting to destroy a window that is locked (LOCK_ALL) \n");
-       */
-      break;
     case GMR_LOCK_DLA:
       ARMCII_Warning("Releasing direct local access before freeing shared allocation\n");
       gmr_dla_unlock(mreg);
@@ -255,13 +220,6 @@ void gmr_destroy(gmr_t *mreg, ARMCI_Group *group) {
       mreg->next->prev = mreg->prev;
   }
 
-#if MPI_VERSION < 3
-  ARMCIX_Destroy_mutexes_hdl(mreg->rmw_mutex);
-#else
-  MPI_Win_unlock_all(mreg->window);
-  mreg->lock_state = GMR_LOCK_UNLOCKED;
-#endif
-
   /* Destroy the window and free all buffers */
   MPI_Win_free(&mreg->window);
 
@@ -269,6 +227,8 @@ void gmr_destroy(gmr_t *mreg, ARMCI_Group *group) {
     MPI_Free_mem(mreg->slices[world_me].base);
 
   free(mreg->slices);
+  ARMCIX_Destroy_mutexes_hdl(mreg->rmw_mutex);
+
   free(mreg);
 }
 
@@ -302,7 +262,6 @@ gmr_t *gmr_lookup(void *ptr, int proc) {
   while (mreg != NULL) {
     ARMCII_Assert(proc < mreg->nslices);
 
-    /* Jeff: Why is uint8_t used here?  .base is (void*). */
     if (proc < mreg->nslices) {
       const uint8_t   *base = mreg->slices[proc].base;
       const gmr_size_t size = mreg->slices[proc].size;
@@ -368,11 +327,7 @@ int gmr_put_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src_type,
   ARMCII_Assert_msg(disp >= 0 && disp < mreg->slices[proc].size, "Invalid remote address");
   ARMCII_Assert_msg(disp + dst_count*extent <= mreg->slices[proc].size, "Transfer is out of range");
 
-#ifdef RMA_PROPER_ATOMICITY
-  MPI_Accumulate(src, src_count, src_type, grp_proc, (MPI_Aint) disp, dst_count, dst_type, MPI_REPLACE, mreg->window);
-#else
   MPI_Put(src, src_count, src_type, grp_proc, (MPI_Aint) disp, dst_count, dst_type, mreg->window);
-#endif
 
   return 0;
 }
@@ -428,16 +383,7 @@ int gmr_get_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src_type,
   ARMCII_Assert_msg(disp >= 0 && disp < mreg->slices[proc].size, "Invalid remote address");
   ARMCII_Assert_msg(disp + src_count*extent <= mreg->slices[proc].size, "Transfer is out of range");
 
-#if (MPI_VERSION >= 3) && defined(RMA_PROPER_ATOMICITY)
-  /* I can only assume that the 3.1 release - MPICH_CALC_VERSION(3,1,0,3,0) - will fix this. */
-#if (MPICH && (MPICH_NUM_VERSION < MPICH_CALC_VERSION(3,1,0,3,0)) )
-#warning MPI_Get_accumulate will fail on an improper assertion for ARMCI_IOV_METHOD=DIRECT and/or ARMCI_STRIDED_METHOD=DIRECT \
-	unless you apply the patch from http://trac.mpich.org/projects/mpich/ticket/1863
-#endif
-  MPI_Get_accumulate(NULL, 0, MPI_BYTE, dst, dst_count, dst_type, grp_proc, (MPI_Aint) disp, src_count, src_type, MPI_NO_OP, mreg->window);
-#else
   MPI_Get(dst, dst_count, dst_type, grp_proc, (MPI_Aint) disp, src_count, src_type, mreg->window);
-#endif
 
   return 0;
 }
@@ -467,7 +413,7 @@ int gmr_accumulate(gmr_t *mreg, void *src, void *dst, int count, MPI_Datatype ty
   * @param[in] src_type  MPI datatype of the source elements
   * @param[in] dst       Address of destination buffer
   * @param[in] dst_count Number of elements of the given type at the destination
-  * @param[in] dst_type  MPI datatype of the destination elements
+  * @param[in] src_type  MPI datatype of the destination elements
   * @param[in] size      Number of bytes to transfer
   * @param[in] proc      Absolute process id of target process
   * @return              0 on success, non-zero on failure
@@ -502,13 +448,11 @@ int gmr_accumulate_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src
 /** Lock a memory region so that one-sided operations can be performed.
   *
   * @param[in] mreg     Memory region
+  * @param[in] mode     Lock mode (exclusive, shared, etc...)
   * @param[in] proc     Absolute process id of the target
   * @return             0 on success, non-zero on failure
   */
 void gmr_lock(gmr_t *mreg, int proc) {
-#if MPI_VERSION >= 3
-  ARMCII_Assert_msg(0, "gmr_lock should never be called with MPI-3" );
-#else
   int grp_proc = ARMCII_Translate_absolute_to_group(&mreg->group, proc);
   int grp_me   = ARMCII_Translate_absolute_to_group(&mreg->group, ARMCI_GROUP_WORLD.rank);
   int lock_assert, lock_mode;
@@ -523,8 +467,8 @@ void gmr_lock(gmr_t *mreg, int proc) {
     mreg->lock_state = GMR_LOCK_DLA_SUSP;
   }
 
-  if (   ( mreg->access_mode & ARMCIX_MODE_CONFLICT_FREE )
-      && ( mreg->access_mode & ARMCIX_MODE_NO_LOAD_STORE ) )
+  if (   mreg->access_mode & ARMCIX_MODE_CONFLICT_FREE 
+      && mreg->access_mode & ARMCIX_MODE_NO_LOAD_STORE )
   {
     /* Only non-conflicting RMA accesses allowed.
        Shared and exclusive locks. */
@@ -550,7 +494,6 @@ void gmr_lock(gmr_t *mreg, int proc) {
     mreg->lock_state = GMR_LOCK_SHARED;
 
   mreg->lock_target = grp_proc;
-#endif
 }
 
 
@@ -561,9 +504,6 @@ void gmr_lock(gmr_t *mreg, int proc) {
   * @return             0 on success, non-zero on failure
   */
 void gmr_unlock(gmr_t *mreg, int proc) {
-#if MPI_VERSION >= 3
-  ARMCII_Assert_msg(0, "gmr_unlock should never be called with MPI-3" );
-#else
   int grp_proc = ARMCII_Translate_absolute_to_group(&mreg->group, proc);
   int grp_me   = ARMCII_Translate_absolute_to_group(&mreg->group, ARMCI_GROUP_WORLD.rank);
 
@@ -586,20 +526,19 @@ void gmr_unlock(gmr_t *mreg, int proc) {
     MPI_Win_unlock(grp_proc, mreg->window);
     mreg->lock_state = GMR_LOCK_UNLOCKED;
   }
-#endif
 }
 
 
 /** Lock a memory region so that load/store operations can be performed.
   *
   * @param[in] mreg     Memory region
+  * @param[in] mode     Lock mode (exclusive, shared, etc...)
   * @return             0 on success, non-zero on failure
   */
 void gmr_dla_lock(gmr_t *mreg) {
   int grp_proc = ARMCII_Translate_absolute_to_group(&mreg->group, ARMCI_GROUP_WORLD.rank);
 
   ARMCII_Assert(grp_proc >= 0);
-#if MPI_VERSION < 3
   ARMCII_Assert(mreg->lock_state == GMR_LOCK_UNLOCKED || mreg->lock_state == GMR_LOCK_DLA);
   ARMCII_Assert_msg((mreg->access_mode & ARMCIX_MODE_NO_LOAD_STORE) == 0,
       "Direct local access is not allowed in the current access mode");
@@ -615,11 +554,6 @@ void gmr_dla_lock(gmr_t *mreg) {
 
   ARMCII_Assert(mreg->lock_state == GMR_LOCK_DLA);
   mreg->dla_lock_count++;
-#else
-  /* FIXME: This is totally evil on many levels but I haven't figured out how to fix the DLA situation yet. */
-  ARMCII_Assert(mreg->lock_state == GMR_LOCK_ALL);
-  //MPI_Win_sync(mreg->window);
-#endif
 }
 
 
@@ -631,7 +565,6 @@ void gmr_dla_unlock(gmr_t *mreg) {
   int grp_proc = ARMCII_Translate_absolute_to_group(&mreg->group, ARMCI_GROUP_WORLD.rank);
 
   ARMCII_Assert(grp_proc >= 0);
-#if MPI_VERSION < 3
   ARMCII_Assert(mreg->lock_state == GMR_LOCK_DLA);
   ARMCII_Assert_msg((mreg->access_mode & ARMCIX_MODE_NO_LOAD_STORE) == 0,
       "Direct local access is not allowed in the current access mode");
@@ -642,9 +575,4 @@ void gmr_dla_unlock(gmr_t *mreg) {
     MPI_Win_unlock(grp_proc, mreg->window);
     mreg->lock_state = GMR_LOCK_UNLOCKED;
   }
-#else
-  /* FIXME: This is totally evil on many levels but I haven't figured out how to fix the DLA situation yet. */
-  ARMCII_Assert(mreg->lock_state == GMR_LOCK_ALL);
-  //MPI_Win_sync(mreg->window);
-#endif
 }

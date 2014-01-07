@@ -155,15 +155,9 @@ int PARMCI_Get(void *src, void *dst, int size, int target) {
 
   /* Origin buffer is private */
   else if (dst_mreg == NULL) {
-#if MPI_VERSION < 3
     gmr_lock(src_mreg, target);
-#endif
     gmr_get(src_mreg, src, dst, size, target);
-#if MPI_VERSION < 3
     gmr_unlock(src_mreg, target);
-#else
-    gmr_flush(src_mreg, target, 0); /* it's a round trip so w.r.t. flush, local=remote */
-#endif
   }
 
   /* COPY: Either origin and target buffers are in the same window and we can't
@@ -175,21 +169,14 @@ int PARMCI_Get(void *src, void *dst, int size, int target) {
     MPI_Alloc_mem(size, MPI_INFO_NULL, &dst_buf);
     ARMCII_Assert(dst_buf != NULL);
 
-#if MPI_VERSION < 3
     gmr_lock(src_mreg, target);
-#endif
     gmr_get(src_mreg, src, dst_buf, size, target);
-#if MPI_VERSION < 3
     gmr_unlock(src_mreg, target);
-#else
-    gmr_flush(src_mreg, target, 0); /* it's a round trip so w.r.t. flush, local=remote */
-#endif
 
     gmr_dla_lock(dst_mreg);
     ARMCI_Copy(dst_buf, dst, size);
-    gmr_dla_unlock(dst_mreg);
-
     MPI_Free_mem(dst_buf);
+    gmr_dla_unlock(dst_mreg);
   }
 
   return 0;
@@ -236,15 +223,9 @@ int PARMCI_Put(void *src, void *dst, int size, int target) {
 
   /* Origin buffer is private */
   else if (src_mreg == NULL) {
-#if MPI_VERSION < 3
     gmr_lock(dst_mreg, target);
-#endif
     gmr_put(dst_mreg, src, dst, size, target);
-#if MPI_VERSION < 3
     gmr_unlock(dst_mreg, target);
-#else
-    gmr_flush(dst_mreg, target, 1); /* flush_local */
-#endif
   }
 
   /* COPY: Either origin and target buffers are in the same window and we can't
@@ -260,15 +241,9 @@ int PARMCI_Put(void *src, void *dst, int size, int target) {
     ARMCI_Copy(src, src_buf, size);
     gmr_dla_unlock(src_mreg);
 
-#if MPI_VERSION < 3
     gmr_lock(dst_mreg, target);
-#endif
     gmr_put(dst_mreg, src_buf, dst, size, target);
-#if MPI_VERSION < 3
     gmr_unlock(dst_mreg, target);
-#else
-    gmr_flush(dst_mreg, target, 1); /* flush_local */
-#endif
 
     MPI_Free_mem(src_buf);
   }
@@ -355,15 +330,9 @@ int PARMCI_Acc(int datatype, void *scale, void *src, void *dst, int bytes, int p
 
   /* TODO: Support a local accumulate operation more efficiently */
 
-#if MPI_VERSION < 3
   gmr_lock(dst_mreg, proc);
-#endif
   gmr_accumulate(dst_mreg, src_buf, dst, count, type, proc);
-#if MPI_VERSION < 3
   gmr_unlock(dst_mreg, proc);
-#else
-  gmr_flush(dst_mreg, proc, 1); /* flush_local */
-#endif
 
   if (src_is_locked) {
     gmr_dla_unlock(src_mreg);
