@@ -36,15 +36,14 @@ int A1_Initialize(void)
     pami_result_t result = PAMI_ERROR;
 
     char * clientname = "ARMCI";
-    pami_client_t client;
-    result = PAMI_Client_create(clientname, &client, NULL, 0);
+    result = PAMI_Client_create(clientname, &a1client, NULL, 0);
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_create");
 
     pami_configuration_t config[3];
     config[0].name = PAMI_CLIENT_NUM_TASKS;
     config[1].name = PAMI_CLIENT_TASK_ID;
     config[2].name = PAMI_CLIENT_NUM_CONTEXTS;
-    result = PAMI_Client_query(client, config, 3);
+    result = PAMI_Client_query(a1client, config, 3);
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_query");
 
     const size_t world_size = config[0].value.intval;
