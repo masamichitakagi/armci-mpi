@@ -5,7 +5,17 @@
 
 #include "a1.h"
 
+#define NUM_CONTEXTS 2
+const int local_context_offset  = 0;
+const int remote_context_offset = 1;
+
 extern pami_client_t a1client;
 extern pami_context_t * a1contexts;
+
+static void cb_done (void * ctxt, void * clientdata, pami_result_t err)
+{
+  int * active = (int *) clientdata;
+  (*active)--;
+}
 
 #endif // A1_PAMI_H

@@ -7,12 +7,8 @@
 /* for mbar */
 #include <hwi/include/bqc/A2_inlines.h>
 
-#define NUM_CONTEXTS 2
-int local_context_offset  = 0;
-int remote_context_offset = 1;
-
 pami_client_t a1client;
-pami_context_t a1contexts[NUM_CONTEXTS];
+pami_context_t * a1contexts;
 
 pthread_t Progress_thread;
 volatile int progress_active;
@@ -153,8 +149,8 @@ int A1_Rmw(int                target,
     rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep); 
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Endpoint_create");
 
-    pami_rmw_t m;
-    memset(&m, 0, sizeof(pami_rmw_t));
+    pami_rmw_t rmw;
+    memset(&rmw, 0, sizeof(pami_rmw_t));
 
     int active = 1;
     rmw.cookie  = (void*)&active;
