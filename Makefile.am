@@ -30,7 +30,8 @@ libarmci_la_SOURCES = src/buffer.c        \
                       src/vector.c        \
                       src/init_finalize.c \
                       src/conflict_tree.c \
-                      src/parmci.c
+                      src/parmci.c	  \
+		      src/a1-pami.c
 
 libarmci_la_LDFLAGS = -version-info $(libarmci_abi_version)
 
