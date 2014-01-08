@@ -5,6 +5,7 @@
 #include "a1-types.h"
 #include "a1-api.h"
 
+#define DEBUG 1
 #define PRINT_SUCCESS 1
 
 #ifdef DEBUG

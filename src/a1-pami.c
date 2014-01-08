@@ -133,23 +133,31 @@ int A1_Rmw(int                target,
 
     switch (a1type)
     {
-        A1_INT32:  type = PAMI_TYPE_SIGNED_INT;
-        A1_INT64:  type = PAMI_TYPE_SIGNED_LONG;
-        A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;
-        A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG;
-        default:   A1_ASSERT(0,"INVALID TYPE");
+        A1_INT32:  type = PAMI_TYPE_SIGNED_INT;    break;
+        A1_INT64:  type = PAMI_TYPE_SIGNED_LONG;   break; 
+        A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;  break;
+        A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG; break;
+        default: 
+          printf("A1_Rmw: INVALID TYPE \n");
+          A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
+          MPI_Abort(MPI_COMM_WORLD, 1);
+          break;
     }
 
     switch (a1op)
     {
-        A1_FETCH_AND_ADD: op = PAMI_ATOMIC_FETCH_ADD;
-        A1_SWAP:          op = PAMI_ATOMIC_FETCH_SET;
-        default:   A1_ASSERT(0,"INVALID OP");
+        A1_FETCH_AND_ADD: op = PAMI_ATOMIC_FETCH_ADD; break;
+        A1_SWAP:          op = PAMI_ATOMIC_FETCH_SET; break;
+        default:
+          printf("A1_Rmw: INVALID TYPE \n");
+          A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
+          MPI_Abort(MPI_COMM_WORLD, 2);
+          break;
     }
 
     pami_endpoint_t ep;
     rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep); 
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Endpoint_create");
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
 
     pami_rmw_t rmw;
     memset(&rmw, 0, sizeof(pami_rmw_t));
@@ -165,11 +173,11 @@ int A1_Rmw(int                target,
     rmw.dest      = ep;
   
     rc = PAMI_Rmw(a1contexts[local_context_offset], &rmw);
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Rmw");
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Rmw");
 
     while (active) {
       rc = PAMI_Context_trylock_advancev(&(a1contexts[local_context_offset]), 1, 1);
-      A1_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
+      A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
       usleep(1);
     }
 
