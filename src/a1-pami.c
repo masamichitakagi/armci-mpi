@@ -182,9 +182,6 @@ int A1_Rmw(int                target,
 {
     pami_result_t rc = PAMI_ERROR;
 
-    printf("target=%d in=%p out=%p remote=%p count=%ld, op=%d, type=%d \n",
-            target, source_in, source_out, target_ptr, count, a1op, a1type);
-
     A1_ASSERT(count == 1,"A1_Rmw only supports single elements");
 
     pami_type_t type;
