@@ -12,6 +12,8 @@
 #include <debug.h>
 #include <gmr.h>
 
+#include "a1.h"
+
 /* -- begin weak symbols block -- */
 #if defined(HAVE_PRAGMA_WEAK)
 #  pragma weak ARMCI_Init = PARMCI_Init
@@ -279,7 +281,7 @@ int PARMCI_Finalize(void) {
 
   ARMCI_Group_free(&ARMCI_GROUP_WORLD);
 
-  A1_Initialize();
+  A1_Finalize();
 
   return 0;
 }
