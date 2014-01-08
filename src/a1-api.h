@@ -14,6 +14,24 @@ int A1_Initialize(void);
 int A1_Finalize(void);
 
 /*
+ * \brief Get total process count
+ *
+ * \param[out] size        Process count.
+ *
+ * \ingroup UTIL
+ */
+int A1_Size(void);
+
+/*
+ * \brief Get process id
+ *
+ * \param[out] rank        Process id.
+ *
+ * \ingroup UTIL
+ */
+int A1_Rank(void);
+
+/*
  * \brief Blocking RMW on arbitrary data.
  *
  * \param[out] rc                The error code.
