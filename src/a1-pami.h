@@ -1,6 +1,7 @@
 #ifndef A1_PAMI_H
 #define A1_PAMI_H
 
+#include <unistd.h>
 #include <pthread.h>
 
 #include "a1.h"

@@ -7,11 +7,14 @@
 /* for mbar */
 #include <hwi/include/bqc/A2_inlines.h>
 
+int world_size = 0;
+int world_rank = -1;
+
 pami_client_t a1client;
-pami_context_t * a1contexts;
+pami_context_t * a1contexts = NULL;
 
 pthread_t Progress_thread;
-volatile int progress_active;
+volatile int progress_active = 0;
 
 static void * Progress_function(void * input)
 {
@@ -52,13 +55,11 @@ int A1_Initialize(void)
     result = PAMI_Client_query(a1client, config, 3);
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_query");
 
-    const size_t world_size = config[0].value.intval;
-    const size_t world_rank = config[1].value.intval;
-    const size_t ncontexts  = config[2].value.intval;
+    int ncontexts = -1;
+    world_size = config[0].value.intval;
+    world_rank = config[1].value.intval;
+    ncontexts  = config[2].value.intval;
     A1_ASSERT(ncontexts >= NUM_CONTEXTS,"available a1contexts >= NUM_CONTEXTS");
-
-    /* this is for debug printing only */
-    g_world_rank = world_rank;
 
     a1contexts = (pami_context_t *) malloc( NUM_CONTEXTS * sizeof(pami_context_t) );
     A1_ASSERT(a1contexts != NULL,"A1 a1contexts malloc");
@@ -91,8 +92,13 @@ int A1_Finalize(void)
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+#if 0
     status = pthread_cancel(Progress_thread);
     A1_ASSERT(status==0, "pthread_cancel");
+#else
+    progress_active = 1;
+    mbar();
+#endif
 
     void * rv;
     status = pthread_join(Progress_thread, &rv);
@@ -107,6 +113,30 @@ int A1_Finalize(void)
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_destroy");
 
     return 0;
+}
+
+/*
+ * \brief Get total process count
+ *
+ * \param[out] size        Process count.
+ *
+ * \ingroup UTIL
+ */
+int A1_Size(void)
+{
+    return world_size;
+}
+
+/*
+ * \brief Get process id
+ *
+ * \param[out] rank        Process id.
+ *
+ * \ingroup UTIL
+ */
+int A1_Rank(void)
+{
+    return world_rank;
 }
 
 /*
@@ -133,6 +163,11 @@ int A1_Rmw(int                target,
            A1_datatype_t      a1type)
 {
     pami_result_t rc = PAMI_ERROR;
+
+    printf("target=%d in=%p out=%p remote=%p count=%ld, op=%d, type=%d \n",
+            target, source_in, source_out, target_ptr, count, a1op, a1type);
+
+    A1_ASSERT(count == 1,"A1_Rmw only supports single elements");
 
     pami_type_t type;
     pami_atomic_t op;        
@@ -169,14 +204,16 @@ int A1_Rmw(int                target,
     memset(&rmw, 0, sizeof(pami_rmw_t));
 
     volatile int active = 1;
+
+    rmw.dest      = ep;
     rmw.cookie    = (void*)&active;
     rmw.done_fn   = cb_done;
     rmw.value     = source_in;
-    rmw.local     = source_out;
+    rmw.test      = source_in; /* unused */
     rmw.remote    = target_ptr;
+    rmw.local     = source_out;
     rmw.type      = type;
     rmw.operation = op;
-    rmw.dest      = ep;
   
     rc = PAMI_Context_lock(a1contexts[local_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");

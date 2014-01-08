@@ -10,19 +10,17 @@
 #define DEBUG 1
 #define PRINT_SUCCESS 1
 
-static int g_world_rank = -1;
-
 #ifdef DEBUG
 #define A1_ASSERT(c,m) \
         do { \
         if (!(c)) { \
-                    printf(m" FAILED on rank %d\n", g_world_rank); \
+                    printf(m" FAILED on rank %d\n", A1_Rank() ); \
                     fflush(stdout); \
                     sleep(1); \
                     abort(); \
                   } \
         else if (PRINT_SUCCESS) { \
-                    printf(m" SUCCEEDED on rank %d\n", g_world_rank); \
+                    printf(m" SUCCEEDED on rank %d\n", A1_Rank() ); \
                     fflush(stdout); \
                   } \
         } \
