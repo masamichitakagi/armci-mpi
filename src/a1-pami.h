@@ -15,8 +15,6 @@ extern pami_context_t * a1contexts;
 
 static void cb_done(void * ctxt, void * clientdata, pami_result_t err)
 {
-  printf("cb_done \n");
-  fflush(stdout);
   int * active = (int *) clientdata;
   (*active)--;
 }
