@@ -98,7 +98,7 @@ int A1_Initialize(void)
  */
 int A1_Finalize(void)
 {
-    if (!a1_initialized) 
+    if (a1_initialized) 
     {
         int status = -1;
         pami_result_t result = PAMI_ERROR;
