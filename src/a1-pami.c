@@ -15,14 +15,20 @@ volatile int progress_active;
 
 static void * Progress_function(void * input)
 {
-    pami_result_t result = PAMI_ERROR;
+    pami_result_t rc = PAMI_ERROR;
+
+    rc = PAMI_Context_lock(a1contexts[remote_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
 
     while (progress_active)
     {
-        result = PAMI_Context_trylock_advancev(&(a1contexts[remote_context_offset]), 1, 1);
-        A1_ASSERT(result == PAMI_SUCCESS || result == PAMI_EAGAIN,"Progress_function: PAMI_Context_trylock_advancev");
+        rc = PAMI_Context_advance(a1contexts[remote_context_offset], 1000000);
+        A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (remote)");
         usleep(1);
     }
+
+    rc = PAMI_Context_unlock(a1contexts[remote_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
 
     return NULL;
 }
@@ -57,7 +63,7 @@ int A1_Initialize(void)
     a1contexts = (pami_context_t *) malloc( NUM_CONTEXTS * sizeof(pami_context_t) );
     A1_ASSERT(a1contexts != NULL,"A1 a1contexts malloc");
 
-    result = PAMI_Context_createv( a1client, NULL, 0, a1contexts, NUM_CONTEXTS );
+    result = PAMI_Context_createv(a1client, NULL, 0, a1contexts, NUM_CONTEXTS );
     A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Context_createv");
 
     pami_geometry_t world_geometry;
@@ -133,10 +139,10 @@ int A1_Rmw(int                target,
 
     switch (a1type)
     {
-        case A1_INT32:  type = PAMI_TYPE_SIGNED_INT;    break;
-        case A1_INT64:  type = PAMI_TYPE_SIGNED_LONG;   break; 
-        case A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;  break;
-        case A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG; break;
+        case A1_INT32:  type = PAMI_TYPE_SIGNED_INT;         break;
+        case A1_INT64:  type = PAMI_TYPE_SIGNED_LONG_LONG;   break; 
+        case A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;       break;
+        case A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG_LONG; break;
         default: 
           A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
           printf("A1_Rmw: INVALID TYPE \n");
@@ -172,13 +178,24 @@ int A1_Rmw(int                target,
     rmw.operation = op;
     rmw.dest      = ep;
   
+    rc = PAMI_Context_lock(a1contexts[local_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
+
     rc = PAMI_Rmw(a1contexts[local_context_offset], &rmw);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Rmw");
 
-    while (active) {
-      rc = PAMI_Context_trylock_advancev(&(a1contexts[local_context_offset]), 1, 1);
-      A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_trylock_advancev");
-      usleep(1);
+    int attempts = 1000;
+    while (active && attempts-- ) {
+      rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
+      A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+    }
+
+    rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
+
+    if (attempts==0) {
+        fprintf(stderr, "PAMI_Rmw could not complete in 1000 attempts.\n");
+        MPI_Abort(MPI_COMM_WORLD, 3);
     }
 
     return 0;

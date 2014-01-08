@@ -1,12 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "a1-types.h"
 #include "a1-api.h"
 
 #define DEBUG 1
 #define PRINT_SUCCESS 1
+
+static int g_world_rank = -1;
 
 #ifdef DEBUG
 #define A1_ASSERT(c,m) \
@@ -27,4 +31,3 @@
 #define A1_ASSERT(c,m) 
 #endif
 
-static int g_world_rank = -1;
