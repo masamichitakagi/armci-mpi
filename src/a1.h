@@ -8,7 +8,7 @@
 #include "a1-api.h"
 
 #define DEBUG 1
-#define PRINT_SUCCESS 1
+#define PRINT_SUCCESS 0
 
 #ifdef DEBUG
 #define A1_ASSERT(c,m) \
