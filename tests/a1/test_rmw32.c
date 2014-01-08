@@ -36,13 +36,13 @@ void test_rmw (int               mytask,
   {
     for (i = 0; i < ntasks-1; i++)
     {
-      A1_Rmw ( target, 
-	       &outbuf[0],
-	       &outbuf[1],
-	       &outbuf[0],
-	       sizeof(int),
-	       A1_SWAP,
-	       A1_INT32 );
+      A1_Rmw(target, 
+	     &outbuf[0],
+	     &outbuf[1],
+	     &outbuf[0],
+	     sizeof(int),
+	     A1_SWAP,
+	     A1_INT32);
       target ++;
       outbuf[0] = outbuf[1];
       //printf ("%d: current swap %d\n", i, outbuf[0]);
@@ -55,16 +55,17 @@ void test_rmw (int               mytask,
 }
 
 int my_task, origin_task, num_tasks;
+
 int main (int argc, char ** argv)
 {
-  MPI_Init (&argc, &argv);
+  MPI_Init(&argc, &argv);
   A1_Initialize();
   origin_task = 0;
 
   MPI_Comm_size(MPI_COMM_WORLD, &num_tasks);
   MPI_Comm_rank(MPI_COMM_WORLD, &my_task);
 
-  test_rmw (my_task, origin_task, num_tasks);
+  test_rmw(my_task, origin_task, num_tasks);
   
   A1_Finalize();
   MPI_Finalize();
