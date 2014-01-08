@@ -35,7 +35,7 @@ static void * Progress_function(void * input)
     rc = PAMI_Context_unlock(a1contexts[remote_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
 
-    pthread_exit(&progress_active);
+    pthread_exit((void*)&progress_active);
 
     return NULL;
 }
