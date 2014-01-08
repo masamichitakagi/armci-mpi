@@ -133,24 +133,24 @@ int A1_Rmw(int                target,
 
     switch (a1type)
     {
-        A1_INT32:  type = PAMI_TYPE_SIGNED_INT;    break;
-        A1_INT64:  type = PAMI_TYPE_SIGNED_LONG;   break; 
-        A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;  break;
-        A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG; break;
+        case A1_INT32:  type = PAMI_TYPE_SIGNED_INT;    break;
+        case A1_INT64:  type = PAMI_TYPE_SIGNED_LONG;   break; 
+        case A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;  break;
+        case A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG; break;
         default: 
-          printf("A1_Rmw: INVALID TYPE \n");
           A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
+          printf("A1_Rmw: INVALID TYPE \n");
           MPI_Abort(MPI_COMM_WORLD, 1);
           break;
     }
 
     switch (a1op)
     {
-        A1_FETCH_AND_ADD: op = PAMI_ATOMIC_FETCH_ADD; break;
-        A1_SWAP:          op = PAMI_ATOMIC_FETCH_SET; break;
+        case A1_FETCH_AND_ADD: op = PAMI_ATOMIC_FETCH_ADD; break;
+        case A1_SWAP:          op = PAMI_ATOMIC_FETCH_SET; break;
         default:
-          printf("A1_Rmw: INVALID TYPE \n");
           A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
+          printf("A1_Rmw: INVALID TYPE \n");
           MPI_Abort(MPI_COMM_WORLD, 2);
           break;
     }
