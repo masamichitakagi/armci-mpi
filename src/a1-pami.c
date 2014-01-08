@@ -7,6 +7,8 @@
 /* for mbar */
 #include <hwi/include/bqc/A2_inlines.h>
 
+int a1_initialized = 0;
+
 int world_size = 0;
 int world_rank = -1;
 
@@ -43,43 +45,50 @@ static void * Progress_function(void * input)
  */
 int A1_Initialize(void)
 {
-    int status = -1;
-    pami_result_t result = PAMI_ERROR;
+    if (!a1_initialized) 
+    {
+        int status = -1;
+        pami_result_t result = PAMI_ERROR;
 
-    char * clientname = "ARMCI";
-    result = PAMI_Client_create(clientname, &a1client, NULL, 0);
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_create");
+        char * clientname = "ARMCI";
+        result = PAMI_Client_create(clientname, &a1client, NULL, 0);
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_create");
 
-    pami_configuration_t config[3];
-    config[0].name = PAMI_CLIENT_NUM_TASKS;
-    config[1].name = PAMI_CLIENT_TASK_ID;
-    config[2].name = PAMI_CLIENT_NUM_CONTEXTS;
-    result = PAMI_Client_query(a1client, config, 3);
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_query");
+        pami_configuration_t config[3];
+        config[0].name = PAMI_CLIENT_NUM_TASKS;
+        config[1].name = PAMI_CLIENT_TASK_ID;
+        config[2].name = PAMI_CLIENT_NUM_CONTEXTS;
+        result = PAMI_Client_query(a1client, config, 3);
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_query");
 
-    int ncontexts = -1;
-    world_size = config[0].value.intval;
-    world_rank = config[1].value.intval;
-    ncontexts  = config[2].value.intval;
-    A1_ASSERT(ncontexts >= NUM_CONTEXTS,"available a1contexts >= NUM_CONTEXTS");
+        int ncontexts = -1;
+        world_size = config[0].value.intval;
+        world_rank = config[1].value.intval;
+        ncontexts  = config[2].value.intval;
+        A1_ASSERT(ncontexts >= NUM_CONTEXTS,"available a1contexts >= NUM_CONTEXTS");
 
-    a1contexts = (pami_context_t *) malloc( NUM_CONTEXTS * sizeof(pami_context_t) );
-    A1_ASSERT(a1contexts != NULL,"A1 a1contexts malloc");
+        a1contexts = (pami_context_t *) malloc( NUM_CONTEXTS * sizeof(pami_context_t) );
+        A1_ASSERT(a1contexts != NULL,"A1 a1contexts malloc");
 
-    result = PAMI_Context_createv(a1client, NULL, 0, a1contexts, NUM_CONTEXTS );
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Context_createv");
+        result = PAMI_Context_createv(a1client, NULL, 0, a1contexts, NUM_CONTEXTS );
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Context_createv");
 
-    pami_geometry_t world_geometry;
-    result = PAMI_Geometry_world(a1client, &world_geometry );
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Geometry_world");
+        pami_geometry_t world_geometry;
+        result = PAMI_Geometry_world(a1client, &world_geometry );
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Geometry_world");
 
-    progress_active = 1;
-    mbar();
+        progress_active = 1;
+        mbar();
 
-    status = pthread_create(&Progress_thread, NULL, &Progress_function, NULL);
-    A1_ASSERT(status==0, "pthread_create");
+        status = pthread_create(&Progress_thread, NULL, &Progress_function, NULL);
+        A1_ASSERT(status==0, "pthread_create");
 
-    MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
+
+        a1_initialized = 1;
+    }
+    else
+        A1_ASSERT(0, "A1_Initialize called more than once");
 
     return 0;
 }
@@ -89,30 +98,37 @@ int A1_Initialize(void)
  */
 int A1_Finalize(void)
 {
-    int status = -1;
-    pami_result_t result = PAMI_ERROR;
+    if (!a1_initialized) 
+    {
+        int status = -1;
+        pami_result_t result = PAMI_ERROR;
 
-    MPI_Barrier(MPI_COMM_WORLD);
+        MPI_Barrier(MPI_COMM_WORLD);
 
-#if 0
-    status = pthread_cancel(Progress_thread);
-    A1_ASSERT(status==0, "pthread_cancel");
-#else
-    progress_active = 0;
-    mbar();
-#endif
+    #if 0
+        status = pthread_cancel(Progress_thread);
+        A1_ASSERT(status==0, "pthread_cancel");
+    #else
+        progress_active = 0;
+        mbar();
+    #endif
 
-    void * rv;
-    status = pthread_join(Progress_thread, &rv);
-    A1_ASSERT(status==0, "pthread_join");
+        void * rv;
+        status = pthread_join(Progress_thread, &rv);
+        A1_ASSERT(status==0, "pthread_join");
 
-    result = PAMI_Context_destroyv( a1contexts, NUM_CONTEXTS );
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Context_destroyv");
+        result = PAMI_Context_destroyv( a1contexts, NUM_CONTEXTS );
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Context_destroyv");
 
-    free(a1contexts);
+        free(a1contexts);
 
-    result = PAMI_Client_destroy( &a1client );
-    A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_destroy");
+        result = PAMI_Client_destroy( &a1client );
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Client_destroy");
+
+        a1_initialized = 0;
+    }
+    else
+        A1_ASSERT(0, "A1_Finalize called when A1 not initialized");
 
     return 0;
 }
