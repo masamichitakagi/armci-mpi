@@ -18,7 +18,7 @@ typedef enum
 } A1_atomic_op_t;
 
 /* This is PAMI-specific.  Fix (generalize) later. */
-typedef
+typedef struct
 {
     int lactive;
     int ractive;
