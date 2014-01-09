@@ -18,7 +18,6 @@ void test_rmw(int mytask, int origin, int ntasks)
 	     &outbuf[0],
 	     &outbuf[1],
 	     &outbuf[0],
-	     1,
 	     A1_SWAP,
 	     A1_INT32);
       target++;
