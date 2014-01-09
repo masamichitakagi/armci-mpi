@@ -165,7 +165,6 @@ int A1_Rank(void)
  * \param[in]  source_in         Pointer of modification data at source process.
  * \param[out] source_out        Pointer of original read data at source process.
  * \param[in]  target_ptr        Pointer of modified data at target process.
- * \param[in]  count             Number of data elements to update.
  * \param[in]  op                Operation to be performed.
  * \param[in]  type              Type of data and value.
  *
@@ -176,24 +175,21 @@ int A1_Rmw(int                target,
            void *             source_in,
            void *             source_out,
            void *             target_ptr,
-           size_t             count,
            A1_atomic_op_t     a1op,
            A1_datatype_t      a1type)
 {
     pami_result_t rc = PAMI_ERROR;
 
-    A1_ASSERT(count == 1,"A1_Rmw only supports single elements");
-
     pami_type_t type;
-    pami_atomic_t op;        
+    pami_atomic_t op;
 
     switch (a1type)
     {
         case A1_INT32:  type = PAMI_TYPE_SIGNED_INT;         break;
-        case A1_INT64:  type = PAMI_TYPE_SIGNED_LONG_LONG;   break; 
+        case A1_INT64:  type = PAMI_TYPE_SIGNED_LONG_LONG;   break;
         case A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;       break;
         case A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG_LONG; break;
-        default: 
+        default:
           A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
           printf("A1_Rmw: INVALID TYPE \n");
           MPI_Abort(MPI_COMM_WORLD, 1);
@@ -212,7 +208,7 @@ int A1_Rmw(int                target,
     }
 
     pami_endpoint_t ep;
-    rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep); 
+    rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
 
     pami_rmw_t rmw;
@@ -229,7 +225,7 @@ int A1_Rmw(int                target,
     rmw.local     = source_out;
     rmw.type      = type;
     rmw.operation = op;
-  
+
     rc = PAMI_Context_lock(a1contexts[local_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
 
