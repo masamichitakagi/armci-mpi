@@ -295,19 +295,14 @@ int A1_Get(int    target,
     rc = PAMI_Get(a1contexts[local_context_offset], &get);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Get");
 
-    int attempts = 1000;
-    while (active && attempts-- ) {
+    int attempts = 0;
+    while (active) {
       rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
-
-    if (attempts==0) {
-        fprintf(stderr, "PAMI_Get could not complete in 1000 attempts.\n");
-        MPI_Abort(MPI_COMM_WORLD, 3);
-    }
 
     return 0;
 }
@@ -358,19 +353,14 @@ int A1_Put(void * local,
     rc = PAMI_Put(a1contexts[local_context_offset], &put);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Put");
 
-    int attempts = 1000;
-    while (active && attempts-- ) {
+    int attempts = 0;
+    while (active) {
       rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
-
-    if (attempts==0) {
-        fprintf(stderr, "PAMI_Put could not complete in 1000 attempts.\n");
-        MPI_Abort(MPI_COMM_WORLD, 3);
-    }
 
     return 0;
 }
