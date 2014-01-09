@@ -52,4 +52,42 @@ int A1_Rmw(int                target,
            A1_atomic_op_t     op,
            A1_datatype_t      type);
 
+/*
+ * \brief Blocking copy of contiguous data from remote memory to local memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  bytes    Amount of data to transfer in bytes.
+ *
+ * \see A1_NbGet, A1_Put
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Get(int target,
+           void * remote,
+           void * local,
+           size_t bytes);
+
+/*
+ * \brief Blocking copy of contiguous data from local memory to remote memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  bytes    Amount of data to transfer in bytes.
+ *
+ * \see A1_NbGet, A1_Put
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Put(int target,
+           void * remote,
+           void * local,
+           size_t bytes);
+
 #endif // A1_API_H

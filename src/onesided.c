@@ -134,6 +134,7 @@ int ARMCIX_Mode_get(void *ptr) {
   * @return           0 on success, non-zero on failure
   */
 int PARMCI_Get(void *src, void *dst, int size, int target) {
+#if 0
   gmr_t *src_mreg, *dst_mreg;
 
   src_mreg = gmr_lookup(src, target);
@@ -178,7 +179,9 @@ int PARMCI_Get(void *src, void *dst, int size, int target) {
     MPI_Free_mem(dst_buf);
     gmr_dla_unlock(dst_mreg);
   }
-
+#else
+  A1_Get(target, src, dst, (size_t)size);
+#endif
   return 0;
 }
 
@@ -202,6 +205,7 @@ int PARMCI_Get(void *src, void *dst, int size, int target) {
   * @return           0 on success, non-zero on failure
   */
 int PARMCI_Put(void *src, void *dst, int size, int target) {
+#if 0
   gmr_t *src_mreg, *dst_mreg;
 
   dst_mreg = gmr_lookup(dst, target);
@@ -248,6 +252,9 @@ int PARMCI_Put(void *src, void *dst, int size, int target) {
     MPI_Free_mem(src_buf);
   }
 
+#else
+  A1_Put(target, dst, src, (size_t)size);
+#endif
   return 0;
 }
 
