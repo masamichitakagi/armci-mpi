@@ -248,3 +248,128 @@ int A1_Rmw(int                target,
 
     return 0;
 }
+
+/*
+ * \brief Blocking copy of contiguous data from remote memory to local memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  bytes    Amount of data to transfer in bytes.
+ *
+ * \see A1_NbGet, A1_Put
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Get(int    target,
+           void * remote,
+           void * local,
+           size_t bytes)
+{
+    pami_result_t rc = PAMI_ERROR;
+
+    pami_type_t type;
+
+    pami_endpoint_t ep;
+    rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
+
+    pami_get_simple_t get;
+    memset(&get, 0, sizeof(pami_get_simple_t));
+
+    volatile int active = 1;
+
+    get.rma.dest      = ep;
+    get.rma.bytes     = bytes;
+    get.rma.cookie    = (void*)&active;
+    get.rma.done_fn   = cb_done;
+    get.addr.local    = local;
+    get.addr.remote   = remote;
+
+    rc = PAMI_Context_lock(a1contexts[local_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
+
+    rc = PAMI_Get(a1contexts[local_context_offset], &get);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Get");
+
+    int attempts = 1000;
+    while (active && attempts-- ) {
+      rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
+      A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+    }
+
+    rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
+
+    if (attempts==0) {
+        fprintf(stderr, "PAMI_Get could not complete in 1000 attempts.\n");
+        MPI_Abort(MPI_COMM_WORLD, 3);
+    }
+
+    return 0;
+}
+
+/*
+ * \brief Blocking copy of contiguous data from local memory to remote memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  bytes    Amount of data to transfer in bytes.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ *
+ * \see A1_NbPut, A1_Get
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Put(void * local,
+           size_t bytes,
+           int    target,
+           void * remote)
+{
+    pami_result_t rc = PAMI_ERROR;
+
+    pami_type_t type;
+
+    pami_endpoint_t ep;
+    rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
+
+    pami_put_simple_t put;
+    memset(&put, 0, sizeof(pami_put_simple_t));
+
+    volatile int active = 2;
+
+    put.rma.dest      = ep;
+    put.rma.bytes     = bytes;
+    put.rma.cookie    = (void*)&active;
+    put.rma.done_fn   = cb_done;
+    put.put.rdone_fn  = cb_done;
+    put.addr.local    = local;
+    put.addr.remote   = remote;
+
+    rc = PAMI_Context_lock(a1contexts[local_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
+
+    rc = PAMI_Put(a1contexts[local_context_offset], &put);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Put");
+
+    int attempts = 1000;
+    while (active && attempts-- ) {
+      rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
+      A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+    }
+
+    rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
+
+    if (attempts==0) {
+        fprintf(stderr, "PAMI_Put could not complete in 1000 attempts.\n");
+        MPI_Abort(MPI_COMM_WORLD, 3);
+    }
+
+    return 0;
+}

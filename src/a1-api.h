@@ -80,7 +80,7 @@ int A1_Get(int    target,
  * \param[in]  target   Rank of the remote process.
  * \param[in]  remote   Starting address in the remote memory.
  *
- * \see A1_NbGet, A1_Put
+ * \see A1_NbPut, A1_Get
  *
  * \ingroup DATA_TRANSFER
  */

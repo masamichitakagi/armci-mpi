@@ -253,7 +253,7 @@ int PARMCI_Put(void *src, void *dst, int size, int target) {
   }
 
 #else
-  A1_Put(target, dst, src, (size_t)size);
+  A1_Put(src, (size_t)size, target, dst);
 #endif
   return 0;
 }
