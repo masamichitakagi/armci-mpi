@@ -14,6 +14,7 @@
 #include <conflict_tree.h>
 #endif
 
+#include "a1.h"
 
 /** Check an I/O vector operation's buffers for overlap.
   *
@@ -171,7 +172,8 @@ int ARMCII_Iov_op_dispatch(enum ARMCII_Op_e op, void **src, void **dst, int coun
 int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int count, int elem_count,
     MPI_Datatype type, int proc) {
   
-  int i;
+  int i, ts = 0;
+  gmr_t * mreg;
 
   for (i = 0; i < count; i++) {
     switch(op) {
@@ -179,7 +181,6 @@ int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int count, i
 #if 0
         gmr_put(mreg, src[i], dst[i], elem_count, proc);
 #else
-        int ts = 0;
         MPI_Type_size(type, &ts); /* probably always 1 */
         A1_Put(src[i], (size_t)ts*elem_count, proc, dst[i]);
 #endif
@@ -188,13 +189,12 @@ int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int count, i
 #if 0
         gmr_get(mreg, src[i], dst[i], elem_count, proc);
 #else
-        int ts = 0;
         MPI_Type_size(type, &ts); /* probably always 1 */
         A1_Get(proc, dst[i], src[i], (size_t)ts*elem_count);
 #endif
         break;
       case ARMCII_OP_ACC:
-        gmr_t *mreg = gmr_lookup(dst[i], proc);
+        mreg = gmr_lookup(dst[i], proc);
         ARMCII_Assert_msg(mreg != NULL, "Invalid remote pointer");
         gmr_lock(mreg, proc);
         gmr_accumulate(mreg, src[i], dst[i], elem_count, type, proc);
