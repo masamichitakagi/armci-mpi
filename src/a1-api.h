@@ -132,4 +132,48 @@ int A1_Iput(void *        local,
             void *        remote,
             A1_handle_t * handle);
 
+/*
+ * \brief Blocking accumulate (y+=x) of contiguous data from local memory to remote memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  count    Amount of data to transfer in elements.
+ * \param[in]  type     Datatype of elements.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ *
+ * \see A1_Iacc, A1_Put
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Acc(void *    local,
+           size_t    count,
+           a1_type_t type,
+           int       target,
+           void *    remote);
+
+/*
+ * \brief Nonblocking accumulate (y+=x) of contiguous data from local memory to remote memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  count    Amount of data to transfer in elements.
+ * \param[in]  type     Datatype of elements.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ * \param[out] handle   Opaque handle for the request
+ *
+ * \see A1_Acc, A1_Put
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Iacc(void *    local,
+            size_t    count,
+            a1_type_t type,
+            int       target,
+            void *    remote,
+            A1_handle_t * handle);
+
 #endif // A1_API_H
