@@ -84,11 +84,10 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
     		     prem /* dst */, type, rop, proc);
     gmr_flush(dst_mreg, proc, 0); /* it's a round trip so w.r.t. flush, local=remote */
 #else
-    size_t count = 1;
     A1_Rmw(proc,
            is_long ? (void*) &src_val_l : (void*) &src_val_i /* src */,
            is_long ? (void*) &out_val_l : (void*) &out_val_i /* out */,
-           prem /* dst */, count, rop, type);
+           prem /* dst */, rop, type);
 #endif
 
     if (is_long)
@@ -107,11 +106,10 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
                      prem /* dst */, type, rop, proc);
     gmr_flush(dst_mreg, proc, 0); /* it's a round trip so w.r.t. flush, local=remote */
 #else
-    size_t count = 1;
     A1_Rmw(proc,
            is_long ? (void*) &add_val_l   : (void*) &add_val_i   /* src */,
            is_long ? (void*) &fetch_val_l : (void*) &fetch_val_i /* out */,
-           prem /* dst */, count, rop, type);
+           prem /* dst */, rop, type);
 #endif
 
     if (is_long)
