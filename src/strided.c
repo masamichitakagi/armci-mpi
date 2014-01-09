@@ -31,25 +31,21 @@ void ARMCII_Strided_to_dtype(int stride_array[/*stride_levels*/], int count[/*st
   MPI_Type_size(old_type, &old_type_size);
 
   /* Eliminate counts that don't count (all 1 counts at the end) */
-  for (i = stride_levels+1; (i > 0) && (stride_levels > 0) && (count[i-1] == 1); i--)
+  for (i = stride_levels+1; i > 0 && stride_levels > 0 && count[i-1] == 1; i--)
     stride_levels--;
 
   /* A correct strided spec should me monotonic increasing and stride_array[i+1] should
      be a multiple of stride_array[i]. */
   if (stride_levels > 0) {
-    for (i = 1; i < stride_levels; i++) {
-      ARMCII_Assert(stride_array[i] >= stride_array[i-1]);
-      /* This assertion is violated by what seems to be valid usage resulting from
-       * the new GA API call nga_strided_get during the stride test in GA 5.2.
-       * ARMCII_Assert((stride_array[i] % stride_array[i-1]) == 0); */
-    }
+    for (i = 1; i < stride_levels; i++)
+      ARMCII_Assert(stride_array[i] >= stride_array[i-1] && stride_array[i] % stride_array[i-1] == 0);
   }
 
   /* Test for a contiguous transfer */
   if (stride_levels == 0) {
     int elem_count = count[0]/old_type_size;
 
-    ARMCII_Assert((count[0] % old_type_size) == 0);
+    ARMCII_Assert(count[0] % old_type_size == 0);
     MPI_Type_contiguous(elem_count, old_type, new_type);
   }
 
@@ -62,17 +58,14 @@ void ARMCII_Strided_to_dtype(int stride_array[/*stride_levels*/], int count[/*st
     sizes   [stride_levels] = stride_array[0]/old_type_size;
     subsizes[stride_levels] = count[0]/old_type_size;
 
-    ARMCII_Assert((stride_array[0] % old_type_size) == 0);
-    ARMCII_Assert((count[0] % old_type_size) == 0);
+    ARMCII_Assert(stride_array[0] % old_type_size == 0 && count[0] % old_type_size == 0);
 
     for (i = 1; i < stride_levels; i++) {
       /* Convert strides into dimensions by dividing out contributions from lower dims */
       sizes   [stride_levels-i] = stride_array[i]/stride_array[i-1];
       subsizes[stride_levels-i] = count[i];
 
-      /* This assertion is violated by what seems to be valid usage resulting from
-       * the new GA API call nga_strided_get during the stride test in GA 5.2.  
-       * ARMCII_Assert_msg((stride_array[i] % stride_array[i-1]) == 0, "Invalid striding"); */
+      ARMCII_Assert_msg(stride_array[i] % stride_array[i-1] == 0, "Invalid striding");
     }
 
     sizes   [0] = count[stride_levels];
@@ -154,15 +147,9 @@ int PARMCI_PutS(void *src_ptr, int src_stride_ar[/*stride_levels*/],
     mreg = gmr_lookup(dst_ptr, proc);
     ARMCII_Assert_msg(mreg != NULL, "Invalid shared pointer");
 
-#if MPI_VERSION < 3
     gmr_lock(mreg, proc);
-#endif
     gmr_put_typed(mreg, src_buf, 1, src_type, dst_ptr, 1, dst_type, proc);
-#if MPI_VERSION < 3
     gmr_unlock(mreg, proc);
-#else
-    gmr_flush(mreg, proc, 1); /* flush_local */
-#endif
 
     MPI_Type_free(&src_type);
     MPI_Type_free(&dst_type);
@@ -254,15 +241,9 @@ int PARMCI_GetS(void *src_ptr, int src_stride_ar[/*stride_levels*/],
     mreg = gmr_lookup(src_ptr, proc);
     ARMCII_Assert_msg(mreg != NULL, "Invalid shared pointer");
 
-#if MPI_VERSION < 3
     gmr_lock(mreg, proc);
-#endif
     gmr_get_typed(mreg, src_ptr, 1, src_type, dst_buf, 1, dst_type, proc);
-#if MPI_VERSION < 3
     gmr_unlock(mreg, proc);
-#else
-    gmr_flush(mreg, proc, 0);
-#endif
 
     /* COPY: Finish the transfer */
     if (dst_buf != dst_ptr) {
@@ -406,15 +387,9 @@ int PARMCI_AccS(int datatype, void *scale,
     mreg = gmr_lookup(dst_ptr, proc);
     ARMCII_Assert_msg(mreg != NULL, "Invalid shared pointer");
 
-#if MPI_VERSION < 3
     gmr_lock(mreg, proc);
-#endif
     gmr_accumulate_typed(mreg, src_buf, 1, src_type, dst_ptr, 1, dst_type, proc);
-#if MPI_VERSION < 3
     gmr_unlock(mreg, proc);
-#else
-    gmr_flush(mreg, proc, 0);
-#endif
 
     MPI_Type_free(&src_type);
     MPI_Type_free(&dst_type);
@@ -465,13 +440,8 @@ int PARMCI_AccS(int datatype, void *scale,
   */
 int PARMCI_NbPutS(void *src_ptr, int src_stride_ar[/*stride_levels*/],
                void *dst_ptr, int dst_stride_ar[/*stride_levels*/], 
-               int count[/*stride_levels+1*/], int stride_levels, int proc, armci_hdl_t *handle) {
+               int count[/*stride_levels+1*/], int stride_levels, int proc, armci_hdl_t *hdl) {
 
-  /* TODO: implement nonblocking properly and then use it to get blocking */
-  if (handle!=NULL) {
-      handle->is_aggregate = 0;
-      handle->request = MPI_REQUEST_NULL;
-  }
   return PARMCI_PutS(src_ptr, src_stride_ar, dst_ptr, dst_stride_ar, count, stride_levels, proc);
 }
 
@@ -502,13 +472,8 @@ int PARMCI_NbPutS(void *src_ptr, int src_stride_ar[/*stride_levels*/],
   */
 int PARMCI_NbGetS(void *src_ptr, int src_stride_ar[/*stride_levels*/],
                void *dst_ptr, int dst_stride_ar[/*stride_levels*/], 
-               int count[/*stride_levels+1*/], int stride_levels, int proc, armci_hdl_t *handle) {
+               int count[/*stride_levels+1*/], int stride_levels, int proc, armci_hdl_t *hdl) {
 
-  /* TODO: implement nonblocking properly and then use it to get blocking */
-  if (handle!=NULL) {
-      handle->is_aggregate = 0;
-      handle->request = MPI_REQUEST_NULL;
-  }
   return PARMCI_GetS(src_ptr, src_stride_ar, dst_ptr, dst_stride_ar, count, stride_levels, proc);
 }
 
@@ -542,13 +507,8 @@ int PARMCI_NbGetS(void *src_ptr, int src_stride_ar[/*stride_levels*/],
 int PARMCI_NbAccS(int datatype, void *scale,
                void *src_ptr, int src_stride_ar[/*stride_levels*/],
                void *dst_ptr, int dst_stride_ar[/*stride_levels*/],
-               int count[/*stride_levels+1*/], int stride_levels, int proc, armci_hdl_t *handle) {
+               int count[/*stride_levels+1*/], int stride_levels, int proc, armci_hdl_t *hdl) {
 
-  /* TODO: implement nonblocking properly and then use it to get blocking */
-  if (handle!=NULL) {
-      handle->is_aggregate = 0;
-      handle->request = MPI_REQUEST_NULL;
-  }
   return PARMCI_AccS(datatype, scale, src_ptr, src_stride_ar, dst_ptr, dst_stride_ar, count, stride_levels, proc);
 }
 
@@ -581,7 +541,7 @@ void ARMCII_Strided_to_iov(armci_giov_t *iov,
   iov->src_ptr_array = malloc(iov->ptr_array_len*sizeof(void*));
   iov->dst_ptr_array = malloc(iov->ptr_array_len*sizeof(void*));
 
-  ARMCII_Assert((iov->src_ptr_array != NULL) && (iov->dst_ptr_array != NULL));
+  ARMCII_Assert(iov->src_ptr_array != NULL && iov->dst_ptr_array != NULL);
 
   // Case 1: Non-strided transfer
   if (stride_levels == 0) {
@@ -693,7 +653,7 @@ void ARMCII_Iov_iter_free(armcii_iov_iter_t *it) {
   * @return             True if another iteration exists
   */
 int ARMCII_Iov_iter_has_next(armcii_iov_iter_t *it) {
-  return ((it->idx[it->stride_levels-1] < it->count[it->stride_levels]) && (!it->was_contiguous));
+  return (it->idx[it->stride_levels-1] < it->count[it->stride_levels] && !it->was_contiguous);
 }
 
 

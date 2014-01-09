@@ -135,55 +135,7 @@ int ARMCIX_Mode_get(void *ptr) {
   * @return           0 on success, non-zero on failure
   */
 int PARMCI_Get(void *src, void *dst, int size, int target) {
-#if 0
-  gmr_t *src_mreg, *dst_mreg;
-
-  src_mreg = gmr_lookup(src, target);
-
-  /* If NOGUARD is set, assume the buffer is not shared */
-  if (ARMCII_GLOBAL_STATE.shr_buf_method != ARMCII_SHR_BUF_NOGUARD)
-    dst_mreg = gmr_lookup(dst, ARMCI_GROUP_WORLD.rank);
-  else
-    dst_mreg = NULL;
-
-  ARMCII_Assert_msg(src_mreg != NULL, "Invalid remote pointer");
-
-  /* Local operation */
-  if (target == ARMCI_GROUP_WORLD.rank && dst_mreg == NULL) {
-    gmr_dla_lock(src_mreg);
-    ARMCI_Copy(src, dst, size);
-    gmr_dla_unlock(src_mreg);
-  }
-
-  /* Origin buffer is private */
-  else if (dst_mreg == NULL) {
-    gmr_lock(src_mreg, target);
-    gmr_get(src_mreg, src, dst, size, target);
-    gmr_unlock(src_mreg, target);
-  }
-
-  /* COPY: Either origin and target buffers are in the same window and we can't
-   * lock the same window twice (MPI semantics) or the user has requested
-   * always-copy mode. */
-  else {
-    void *dst_buf;
-
-    MPI_Alloc_mem(size, MPI_INFO_NULL, &dst_buf);
-    ARMCII_Assert(dst_buf != NULL);
-
-    gmr_lock(src_mreg, target);
-    gmr_get(src_mreg, src, dst_buf, size, target);
-    gmr_unlock(src_mreg, target);
-
-    gmr_dla_lock(dst_mreg);
-    ARMCI_Copy(dst_buf, dst, size);
-    MPI_Free_mem(dst_buf);
-    gmr_dla_unlock(dst_mreg);
-  }
-#else
-  A1_Get(target, src, dst, (size_t)size);
-#endif
-  return 0;
+  return A1_Get(target, src, dst, (size_t)size);
 }
 
 
@@ -206,57 +158,7 @@ int PARMCI_Get(void *src, void *dst, int size, int target) {
   * @return           0 on success, non-zero on failure
   */
 int PARMCI_Put(void *src, void *dst, int size, int target) {
-#if 0
-  gmr_t *src_mreg, *dst_mreg;
-
-  dst_mreg = gmr_lookup(dst, target);
-
-  /* If NOGUARD is set, assume the buffer is not shared */
-  if (ARMCII_GLOBAL_STATE.shr_buf_method != ARMCII_SHR_BUF_NOGUARD)
-    src_mreg = gmr_lookup(src, ARMCI_GROUP_WORLD.rank);
-  else
-    src_mreg = NULL;
-
-  ARMCII_Assert_msg(dst_mreg != NULL, "Invalid remote pointer");
-
-  /* Local operation */
-  if (target == ARMCI_GROUP_WORLD.rank && src_mreg == NULL) {
-    gmr_dla_lock(dst_mreg);
-    ARMCI_Copy(src, dst, size);
-    gmr_dla_unlock(dst_mreg);
-  }
-
-  /* Origin buffer is private */
-  else if (src_mreg == NULL) {
-    gmr_lock(dst_mreg, target);
-    gmr_put(dst_mreg, src, dst, size, target);
-    gmr_unlock(dst_mreg, target);
-  }
-
-  /* COPY: Either origin and target buffers are in the same window and we can't
-   * lock the same window twice (MPI semantics) or the user has requested
-   * always-copy mode. */
-  else {
-    void *src_buf;
-
-    MPI_Alloc_mem(size, MPI_INFO_NULL, &src_buf);
-    ARMCII_Assert(src_buf != NULL);
-
-    gmr_dla_lock(src_mreg);
-    ARMCI_Copy(src, src_buf, size);
-    gmr_dla_unlock(src_mreg);
-
-    gmr_lock(dst_mreg, target);
-    gmr_put(dst_mreg, src_buf, dst, size, target);
-    gmr_unlock(dst_mreg, target);
-
-    MPI_Free_mem(src_buf);
-  }
-
-#else
-  A1_Put(src, (size_t)size, target, dst);
-#endif
-  return 0;
+  return A1_Put(src, (size_t)size, target, dst);
 }
 
 

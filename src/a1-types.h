@@ -17,4 +17,12 @@ typedef enum
   A1_SWAP,
 } A1_atomic_op_t;
 
+/* This is PAMI-specific.  Fix (generalize) later. */
+typedef
+{
+    int lactive;
+    int ractive;
+}
+A1_handle_t;
+
 #endif // A1_TYPES_H
