@@ -236,19 +236,20 @@ int A1_Rmw(int                target,
     rc = PAMI_Rmw(a1contexts[local_context_offset], &rmw);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Rmw");
 
-    int attempts = 1000;
-    while (active && attempts-- ) {
-      rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
+    int attempts = 0;
+    while (active) {
+      rc = PAMI_Context_advance(a1contexts[local_context_offset], 1000);
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+      attempts++;
+      if (attempts > 1000000)
+        MPI_Abort(MPI_COMM_WORLD, 3);
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
 
-    if (attempts==0) {
-        fprintf(stderr, "PAMI_Rmw could not complete in 1000 attempts.\n");
-        MPI_Abort(MPI_COMM_WORLD, 3);
-    }
+    if (attempts>1000)
+      fprintf(stderr, "PAMI_Rmw required %d calls to PAMI_Context_advance(..,1000)\n", attempts);
 
     return 0;
 }
