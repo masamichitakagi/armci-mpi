@@ -61,7 +61,7 @@ int A1_Rmw(int                target,
  * \param[in]  local    Starting address in the local memory.
  * \param[in]  bytes    Amount of data to transfer in bytes.
  *
- * \see A1_NbGet, A1_Put
+ * \see A1_Iget, A1_Put
  *
  * \ingroup DATA_TRANSFER
  */
@@ -80,7 +80,7 @@ int A1_Get(int    target,
  * \param[in]  target   Rank of the remote process.
  * \param[in]  remote   Starting address in the remote memory.
  *
- * \see A1_NbPut, A1_Get
+ * \see A1_Iput, A1_Get
  *
  * \ingroup DATA_TRANSFER
  */
@@ -89,5 +89,47 @@ int A1_Put(void * local,
            size_t bytes,
            int    target,
            void * remote);
+
+/*
+ * \brief Nonblocking copy of contiguous data from remote memory to local memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  bytes    Amount of data to transfer in bytes.
+ * \param[out] handle   Opaque handle for the request
+ *
+ * \see A1_Get, A1_Iput
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Iget(int           target,
+            void *        remote,
+            void *        local,
+            size_t        bytes,
+            A1_handle_t * handle);
+
+/*
+ * \brief Blocking copy of contiguous data from local memory to remote memory.
+ *
+ * \param[out] rc       The error code.
+ * \param[in]  local    Starting address in the local memory.
+ * \param[in]  bytes    Amount of data to transfer in bytes.
+ * \param[in]  target   Rank of the remote process.
+ * \param[in]  remote   Starting address in the remote memory.
+ * \param[out] handle   Opaque handle for the request
+ *
+ * \see A1_Put, A1_Iget
+ *
+ * \ingroup DATA_TRANSFER
+ */
+
+int A1_Iput(void *        local,
+            size_t        bytes,
+            int           target,
+            void *        remote,
+            A1_handle_t * handle);
 
 #endif // A1_API_H
