@@ -15,6 +15,63 @@ int world_rank = -1;
 pami_client_t a1client;
 pami_context_t * a1contexts = NULL;
 
+/************ ACCUMULATE STUFF ************/
+
+#define ACCUMULATE_DISPATCH_ID 12
+
+typedef struct
+{
+    /* address of remote data to update */
+    void *    addr;
+#if 0
+    /* scaling factor; currently unused */
+    union scaling { int32_t i; int64_t l; float f; double d; }
+#endif
+    /* translate A1 to PAMI at sender */
+    pami_type_t type;
+} 
+pami_acc_header_t;
+
+static void accumulate_done_cb(pami_context_t context, void * cookie, pami_result_t result)
+{
+  return;
+}
+
+static void accumulate_recv_cb(pami_context_t context,
+                             void * cookie,
+                             const void * header_addr, size_t header_size,
+                             const void * pipe_addr,
+                             size_t data_size,
+                             pami_endpoint_t origin,
+                             pami_recv_t * recv)
+{
+  pami_acc_header_t * h = (pami_acc_header_t*)header_addr;
+
+  if (pipe_addr!=NULL)
+  {
+    size_t count = data_size/sizeof(double);
+    /* TODO macro and switch-case this ala A1-DCMF */
+    double * target_data = h->addr;
+    const double * pipe_data = (const double *) pipe_addr;
+    for (size_t i=0; i<count; i++)
+      target_data[i] += pipe_data[i];
+  }
+  else
+  {
+    recv->cookie      = 0;
+    recv->local_fn    = NULL;
+    recv->addr        = h->addr;
+    recv->type        = h->type;
+    recv->offset      = 0;
+    recv->data_fn     = PAMI_DATA_SUM;
+    recv->data_cookie = NULL;
+  }
+
+  return;
+}
+
+/****************************************/
+
 pthread_t Progress_thread;
 volatile int progress_active = 0;
 
@@ -76,6 +133,22 @@ int A1_Initialize(void)
         pami_geometry_t world_geometry;
         result = PAMI_Geometry_world(a1client, &world_geometry );
         A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Geometry_world");
+
+        /* register the dispatch function */
+
+        pami_dispatch_callback_function pami_acc_dispatch_fn = { .p2p = accumulate_recv_cb };
+        pami_dispatch_hint_t pami_acc_dispatch_hint          = { .recv_immediate = PAMI_HINT_DISABLE };
+        size_t pami_acc_dispatch_id                          = ACCUMULATE_DISPATCH_ID;
+        int pami_acc_dispatch_cookie                         = world_rank; /* what is the point of this? */
+
+        result = PAMI_Dispatch_set(a1contexts[remote_context_offset], 
+                                   pami_acc_dispatch_id, 
+                                   pami_acc_dispatch_fn, 
+                                   &pami_acc_dispatch_cookie, 
+                                   pami_acc_dispatch_hint);
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Dispatch_set");
+  
+        /* startup the (stupid) progress engine */
 
         progress_active = 1;
         mbar();
@@ -214,7 +287,7 @@ int A1_Rmw(int                target,
     pami_rmw_t rmw;
     memset(&rmw, 0, sizeof(pami_rmw_t));
 
-    volatile int active = 1;
+    int active = 1;
 
     rmw.dest      = ep;
     rmw.cookie    = (void*)&active;
@@ -280,7 +353,7 @@ int A1_Get(int    target,
     pami_get_simple_t get;
     memset(&get, 0, sizeof(pami_get_simple_t));
 
-    volatile int active = 1;
+    int active = 1;
 
     get.rma.dest      = ep;
     get.rma.bytes     = bytes;
@@ -337,7 +410,7 @@ int A1_Put(void * local,
     pami_put_simple_t put;
     memset(&put, 0, sizeof(pami_put_simple_t));
 
-    volatile int active = 2;
+    int active = 2;
 
     put.rma.dest      = ep;
     put.rma.bytes     = bytes;
@@ -380,38 +453,74 @@ int A1_Put(void * local,
  * \ingroup DATA_TRANSFER
  */
 
-int A1_Acc(void *    local,
-           size_t    count,
-           a1_type_t type,
-           int       target,
-           void *    remote)
+int A1_Acc(void *        local,
+           size_t        count,
+           A1_datatype_t a1type,
+           int           target,
+           void *        remote)
 {
     pami_result_t rc = PAMI_ERROR;
-
-    pami_type_t type;
 
     pami_endpoint_t ep;
     rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
 
-    pami_put_simple_t put;
-    memset(&put, 0, sizeof(pami_put_simple_t));
+    pami_type_t pamitype;
+    int typesize = 0;
+    switch (a1type)
+    {
+        case A1_INT32:  
+            pamitype = PAMI_TYPE_SIGNED_INT;
+            typesize = 4;
+            break;
+        case A1_INT64:  
+            pamitype = PAMI_TYPE_SIGNED_LONG_LONG;
+            typesize = 8;
+            break;
+        case A1_UINT32: 
+            pamitype = PAMI_TYPE_UNSIGNED_INT;
+            typesize = 4;
+            break;
+        case A1_UINT64: 
+            pamitype = PAMI_TYPE_UNSIGNED_LONG_LONG;
+            typesize = 8;
+            break;
+        case A1_FLOAT: 
+            pamitype = PAMI_TYPE_FLOAT;
+            typesize = 4;
+            break;
+        case A1_DOUBLE:
+            pamitype = PAMI_TYPE_DOUBLE;
+            typesize = 8;
+            break;
+        default:
+          A1_ASSERT(0,"A1_Acc: INVALID TYPE");
+          MPI_Abort(MPI_COMM_WORLD, 1);
+          break;
+    }
 
-    volatile int active = 2;
+    pami_acc_header_t acc_header = { .addr = remote , .type = pamitype };
 
-    put.rma.dest      = ep;
-    put.rma.bytes     = bytes;
-    put.rma.cookie    = (void*)&active;
-    put.rma.done_fn   = cb_done;
-    put.put.rdone_fn  = cb_done;
-    put.addr.local    = local;
-    put.addr.remote   = remote;
+    pami_send_t acc;
+    memset(&acc, 0, sizeof(pami_send_t));
+
+    int active = 2;
+
+    acc.send.header.iov_base = (void*)&acc_header;
+    acc.send.header.iov_len  = sizeof(pami_acc_header_t);
+    acc.send.data.iov_base   = local;
+    acc.send.data.iov_len    = count*typesize;
+    acc.send.dispatch        = ACCUMULATE_DISPATCH_ID;
+    acc.send.dest            = ep;
+    acc.events.cookie        = &active;
+    acc.events.local_fn      = cb_done;
+    acc.events.remote_fn     = cb_done;
 
     rc = PAMI_Context_lock(a1contexts[local_context_offset]);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
 
-    rc = PAMI_Put(a1contexts[local_context_offset], &put);
-    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Put");
+    rc = PAMI_Send(a1contexts[local_context_offset], &acc);
+    A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Send");
 
     int attempts = 0;
     while (active) {

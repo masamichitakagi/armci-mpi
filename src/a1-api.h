@@ -147,11 +147,11 @@ int A1_Iput(void *        local,
  * \ingroup DATA_TRANSFER
  */
 
-int A1_Acc(void *    local,
-           size_t    count,
-           a1_type_t type,
-           int       target,
-           void *    remote);
+int A1_Acc(void *        local,
+           size_t        count,
+           A1_datatype_t type,
+           int           target,
+           void *        remote);
 
 /*
  * \brief Nonblocking accumulate (y+=x) of contiguous data from local memory to remote memory.
@@ -169,11 +169,11 @@ int A1_Acc(void *    local,
  * \ingroup DATA_TRANSFER
  */
 
-int A1_Iacc(void *    local,
-            size_t    count,
-            a1_type_t type,
-            int       target,
-            void *    remote,
+int A1_Iacc(void *        local,
+            size_t        count,
+            A1_datatype_t type,
+            int           target,
+            void *        remote,
             A1_handle_t * handle);
 
 #endif // A1_API_H
