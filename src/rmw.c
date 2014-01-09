@@ -43,17 +43,6 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
   int is_swap = 0, is_long = 0;
   A1_datatype_t type;
   A1_atomic_op_t rop;
-  gmr_t *src_mreg, *dst_mreg;
-
-  /* If NOGUARD is set, assume the buffer is not shared */
-  if (ARMCII_GLOBAL_STATE.shr_buf_method != ARMCII_SHR_BUF_NOGUARD)
-    src_mreg = gmr_lookup(ploc, ARMCI_GROUP_WORLD.rank);
-  else
-    src_mreg = NULL;
-
-  dst_mreg = gmr_lookup(prem, proc);
-
-  ARMCII_Assert_msg(dst_mreg != NULL, "Invalid remote pointer");
 
   if (op == ARMCI_SWAP_LONG || op == ARMCI_FETCH_AND_ADD_LONG) {
     is_long = 1;
@@ -71,24 +60,14 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
   else
     ARMCII_Error("invalid operation (%d)", op);
 
-  /* We hold the DLA lock if (src_mreg != NULL). */
-
   if (is_swap) {
     long out_val_l, src_val_l = *((long*)ploc);
     int  out_val_i, src_val_i = *((int*)ploc);
 
-#if 0
-    gmr_fetch_and_op(dst_mreg, 
-                     is_long ? (void*) &src_val_l : (void*) &src_val_i /* src */,
-                     is_long ? (void*) &out_val_l : (void*) &out_val_i /* out */,
-    		     prem /* dst */, type, rop, proc);
-    gmr_flush(dst_mreg, proc, 0); /* it's a round trip so w.r.t. flush, local=remote */
-#else
     A1_Rmw(proc,
            is_long ? (void*) &src_val_l : (void*) &src_val_i /* src */,
            is_long ? (void*) &out_val_l : (void*) &out_val_i /* out */,
            prem /* dst */, rop, type);
-#endif
 
     if (is_long)
       *(long*) ploc = out_val_l;
@@ -99,18 +78,10 @@ int PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc) {
     long fetch_val_l, add_val_l = value;
     int  fetch_val_i, add_val_i = value;
 
-#if 0
-    gmr_fetch_and_op(dst_mreg,
-                     is_long ? (void*) &add_val_l   : (void*) &add_val_i   /* src */,
-                     is_long ? (void*) &fetch_val_l : (void*) &fetch_val_i /* out */,
-                     prem /* dst */, type, rop, proc);
-    gmr_flush(dst_mreg, proc, 0); /* it's a round trip so w.r.t. flush, local=remote */
-#else
     A1_Rmw(proc,
            is_long ? (void*) &add_val_l   : (void*) &add_val_i   /* src */,
            is_long ? (void*) &fetch_val_l : (void*) &fetch_val_i /* out */,
            prem /* dst */, rop, type);
-#endif
 
     if (is_long)
       *(long*) ploc = fetch_val_l;
