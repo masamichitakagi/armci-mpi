@@ -12,6 +12,7 @@
 #include <debug.h>
 #include <gmr.h>
 
+#include "a1.h"
 
 /* -- begin weak symbols block -- */
 #if defined(HAVE_PRAGMA_WEAK)
