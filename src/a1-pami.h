@@ -19,4 +19,68 @@ static void cb_done(void * ctxt, void * clientdata, pami_result_t err)
   (*active)--;
 }
 
+static inline void types_a1_to_pami(A1_datatype_t a1, pami_type_t * pt, int * sz)
+{
+    switch (a1)
+    {
+        case A1_INT32:  
+            *pt = PAMI_TYPE_SIGNED_INT;
+            *sz = 4;
+            break;
+        case A1_INT64:  
+            *pt = PAMI_TYPE_SIGNED_LONG_LONG;
+            *sz = 8;
+            break;
+        case A1_UINT32: 
+            *pt = PAMI_TYPE_UNSIGNED_INT;
+            *sz = 4;
+            break;
+        case A1_UINT64: 
+            *pt = PAMI_TYPE_UNSIGNED_LONG_LONG;
+            *sz = 8;
+            break;
+        case A1_FLOAT: 
+            *pt = PAMI_TYPE_FLOAT;
+            *sz = 4;
+            break;
+        case A1_DOUBLE:
+            *pt = PAMI_TYPE_DOUBLE;
+            *sz = 8;
+            break;
+        default:
+          A1_ASSERT(0,"A1_Acc: INVALID TYPE");
+          MPI_Abort(MPI_COMM_WORLD, 1);
+          break;
+    }
+    return;
+}
+
+static void print_pami_result_text(pami_result_t r)
+{
+    switch(r)
+    {
+        case PAMI_SUCCESS     : printf("PAMI result = %16s \n", "PAMI_SUCCESS    ");
+        case PAMI_NERROR      : printf("PAMI result = %16s \n", "PAMI_NERROR     ");
+        case PAMI_ERROR       : printf("PAMI result = %16s \n", "PAMI_ERROR      ");
+        case PAMI_INVAL       : printf("PAMI result = %16s \n", "PAMI_INVAL      ");
+        case PAMI_UNIMPL      : printf("PAMI result = %16s \n", "PAMI_UNIMPL     ");
+        case PAMI_EAGAIN      : printf("PAMI result = %16s \n", "PAMI_EAGAIN     ");
+        case PAMI_ENOMEM      : printf("PAMI result = %16s \n", "PAMI_ENOMEM     ");
+        case PAMI_SHUTDOWN    : printf("PAMI result = %16s \n", "PAMI_SHUTDOWN   ");
+        case PAMI_CHECK_ERRNO : printf("PAMI result = %16s \n", "PAMI_CHECK_ERRNO");
+        case PAMI_OTHER       : printf("PAMI result = %16s \n", "PAMI_OTHER      ");
+        case PAMI_RESULT_EXT  : printf("PAMI result = %16s \n", "PAMI_RESULT_EXT ");
+    }
+    return;
+}
+
+#define A1_ACC_MACRO(datatype, source, target, bytes)                       \
+   do {                                                                     \
+     size_t count = bytes/sizeof(datatype);                                 \
+     datatype * s = (datatype *) source;                                    \
+     datatype * t = (datatype *) target;                                    \
+     for(size_t i=0; i<count; i++)                                          \
+          t[i] += s[i];                                                     \
+   } while(0)                                                               \
+
 #endif // A1_PAMI_H

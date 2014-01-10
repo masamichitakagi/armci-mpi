@@ -22,13 +22,12 @@ pami_context_t * a1contexts = NULL;
 typedef struct
 {
     /* address of remote data to update */
-    void *    addr;
+    void * addr;
 #if 0
     /* scaling factor; currently unused */
     union scaling { int32_t i; int64_t l; float f; double d; }
 #endif
-    /* translate A1 to PAMI at sender */
-    pami_type_t type;
+    A1_datatype_t type;
 } 
 pami_acc_header_t;
 
@@ -38,30 +37,63 @@ static void accumulate_done_cb(pami_context_t context, void * cookie, pami_resul
 }
 
 static void accumulate_recv_cb(pami_context_t context,
-                             void * cookie,
-                             const void * header_addr, size_t header_size,
-                             const void * pipe_addr,
-                             size_t data_size,
-                             pami_endpoint_t origin,
-                             pami_recv_t * recv)
+                               void * cookie,
+                               const void * header_addr, size_t header_size,
+                               const void * pipe_addr,   
+                               size_t data_size, /* applies to both pipe and stream */
+                               pami_endpoint_t origin,
+                               pami_recv_t * recv)
 {
   pami_acc_header_t * h = (pami_acc_header_t*)header_addr;
 
-  if (pipe_addr!=NULL)
-  {
-    size_t count = data_size/sizeof(double);
+  A1_datatype_t  a1type = h->type;
+
+  if (pipe_addr!=NULL) {
+    switch(a1type) {
+      case A1_DOUBLE:
+        A1_ACC_MACRO(double, pipe_addr, h->addr, data_size);
+        break;
+      case A1_FLOAT:
+        A1_ACC_MACRO(float, pipe_addr, h->addr, data_size);
+        break;
+      case A1_INT32:
+        A1_ACC_MACRO(int32_t, pipe_addr, h->addr, data_size);
+        break;
+      case A1_INT64:
+        A1_ACC_MACRO(int64_t, pipe_addr, h->addr, data_size);
+        break;
+      case A1_UINT32:
+        A1_ACC_MACRO(uint32_t, pipe_addr, h->addr, data_size);
+        break;
+      case A1_UINT64:
+        A1_ACC_MACRO(uint64_t, pipe_addr, h->addr, data_size);
+        break;
+      default:
+        A1_ASSERT(0,"accumulate_recv_cb: INVALID TYPE");
+        printf("accumulate_recv_cb: INVALID TYPE \n");
+        MPI_Abort(MPI_COMM_WORLD, 1);
+        break;
+    }
+#if 0
     /* TODO macro and switch-case this ala A1-DCMF */
+    size_t count = data_size/sizeof(double);
     double * target_data = h->addr;
     const double * pipe_data = (const double *) pipe_addr;
     for (size_t i=0; i<count; i++)
       target_data[i] += pipe_data[i];
+#endif
   }
-  else
-  {
+  else /* stream */ {
+    
+    pami_type_t pt;
+    int sz;
+
+    types_a1_to_pami(a1type, &pt, &sz);
+
     recv->cookie      = 0;
-    recv->local_fn    = NULL;
+    recv->local_fn    = NULL; /* accumulate_done_cb would go here */
     recv->addr        = h->addr;
-    recv->type        = h->type;
+    recv->type        = pt;
     recv->offset      = 0;
     recv->data_fn     = PAMI_DATA_SUM;
     recv->data_cookie = NULL;
@@ -344,8 +376,6 @@ int A1_Get(int    target,
 {
     pami_result_t rc = PAMI_ERROR;
 
-    pami_type_t type;
-
     pami_endpoint_t ep;
     rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
@@ -372,6 +402,7 @@ int A1_Get(int    target,
     while (active) {
       rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+      attempts++;
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
@@ -401,8 +432,6 @@ int A1_Put(void * local,
 {
     pami_result_t rc = PAMI_ERROR;
 
-    pami_type_t type;
-
     pami_endpoint_t ep;
     rc = PAMI_Endpoint_create(a1client, (pami_task_t)target, remote_context_offset, &ep);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
@@ -430,6 +459,7 @@ int A1_Put(void * local,
     while (active) {
       rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+      attempts++;
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
@@ -466,40 +496,10 @@ int A1_Acc(void *        local,
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Endpoint_create");
 
     pami_type_t pamitype;
-    int typesize = 0;
-    switch (a1type)
-    {
-        case A1_INT32:  
-            pamitype = PAMI_TYPE_SIGNED_INT;
-            typesize = 4;
-            break;
-        case A1_INT64:  
-            pamitype = PAMI_TYPE_SIGNED_LONG_LONG;
-            typesize = 8;
-            break;
-        case A1_UINT32: 
-            pamitype = PAMI_TYPE_UNSIGNED_INT;
-            typesize = 4;
-            break;
-        case A1_UINT64: 
-            pamitype = PAMI_TYPE_UNSIGNED_LONG_LONG;
-            typesize = 8;
-            break;
-        case A1_FLOAT: 
-            pamitype = PAMI_TYPE_FLOAT;
-            typesize = 4;
-            break;
-        case A1_DOUBLE:
-            pamitype = PAMI_TYPE_DOUBLE;
-            typesize = 8;
-            break;
-        default:
-          A1_ASSERT(0,"A1_Acc: INVALID TYPE");
-          MPI_Abort(MPI_COMM_WORLD, 1);
-          break;
-    }
+    int typesize;
+    types_a1_to_pami(a1type, &pamitype, &typesize);
 
-    pami_acc_header_t acc_header = { .addr = remote , .type = pamitype };
+    pami_acc_header_t acc_header = { .addr = remote , .type = a1type };
 
     pami_send_t acc;
     memset(&acc, 0, sizeof(pami_send_t));
@@ -520,12 +520,14 @@ int A1_Acc(void *        local,
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
 
     rc = PAMI_Send(a1contexts[local_context_offset], &acc);
+    print_pami_result_text(rc);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Send");
 
     int attempts = 0;
     while (active) {
       rc = PAMI_Context_advance(a1contexts[local_context_offset], 1);
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
+      attempts++;
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);
