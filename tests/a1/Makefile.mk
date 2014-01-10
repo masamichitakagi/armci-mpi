@@ -10,7 +10,6 @@ check_PROGRAMS += \
                   tests/a1/ARMCI_FlushAll_latency    \
                   tests/a1/ARMCI_Get_bw              \
                   tests/a1/ARMCI_Get_latency         \
-                  tests/a1/ARMCI_Get_latency_SO      \
                   tests/a1/ARMCI_GetS_bw             \
                   tests/a1/ARMCI_GetS_latency        \
                   tests/a1/ARMCI_IGOP_Scalar         \
@@ -34,7 +33,6 @@ TESTS          += \
                   tests/a1/ARMCI_FlushAll_latency    \
                   tests/a1/ARMCI_Get_bw              \
                   tests/a1/ARMCI_Get_latency         \
-                  tests/a1/ARMCI_Get_latency_SO      \
                   tests/a1/ARMCI_GetS_bw             \
                   tests/a1/ARMCI_GetS_latency        \
                   tests/a1/ARMCI_IGOP_Scalar         \
@@ -57,7 +55,6 @@ tests_a1_ARMCI_Bcast_LDADD = libarmci.la
 tests_a1_ARMCI_FlushAll_latency_LDADD = libarmci.la
 tests_a1_ARMCI_Get_bw_LDADD = libarmci.la
 tests_a1_ARMCI_Get_latency_LDADD = libarmci.la
-tests_a1_ARMCI_Get_latency_SO_LDADD = libarmci.la
 tests_a1_ARMCI_GetS_bw_LDADD = libarmci.la
 tests_a1_ARMCI_GetS_latency_LDADD = libarmci.la
 tests_a1_ARMCI_IGOP_Scalar_LDADD = libarmci.la
