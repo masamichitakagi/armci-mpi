@@ -1,6 +1,8 @@
 #ifndef A1_TYPES_H
 #define A1_TYPES_H
 
+#include <mpi.h>
+
 typedef enum
 {
   A1_INT32,  /**< int32            */
@@ -24,5 +26,42 @@ typedef struct
     int ractive;
 }
 A1_handle_t;
+
+static inline void types_mpi_to_a1(MPI_Datatype mpi, A1_datatype_t * a1)
+{
+    switch(mpi)
+    {
+        case MPI_DOUBLE: 
+            *a1 = A1_DOUBLE;
+            break;
+        case MPI_FLOAT:
+            *a1 = A1_FLOAT;
+            break;
+        //case MPI_INT: 
+        case MPI_INT32_T:
+            *a1 = A1_INT32; 
+            break;
+        //case MPI_UNSIGNED: 
+        case MPI_UINT32_T:
+            *a1 = A1_UINT32; 
+            break;
+        //case MPI_LONG: /* only true for 64-bit systems */
+        //case MPI_LONG_LONG: 
+        //case MPI_LONG_LONG_INT: 
+        case MPI_INT64_T:
+            *a1 = A1_INT64; 
+            break;
+        //case MPI_UNSIGNED_LONG: /* only true for 64-bit systems */
+        //case MPI_UNSIGNED_LONG_LONG: 
+        case MPI_UINT64_T:
+            *a1 = A1_UINT64; 
+            break;
+        default:
+            printf("MPI-to-A1 type conversion failed to find match.\n");
+            MPI_Abort(MPI_COMM_WORLD, 1);
+            break;
+    }
+    return;
+}
 
 #endif // A1_TYPES_H

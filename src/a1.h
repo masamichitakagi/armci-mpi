@@ -1,3 +1,6 @@
+#ifndef A1_H
+#define A1_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,3 +32,4 @@
 #define A1_ASSERT(c,m) 
 #endif
 
+#endif // A1_H
