@@ -24,12 +24,11 @@
 int ARMCII_Iov_check_overlap(void **ptrs, int count, int size) {
 #ifndef NO_CHECK_OVERLAP
 #ifdef NO_USE_CTREE
-  int i, j;
 
   if (!ARMCII_GLOBAL_STATE.iov_checks) return 0;
 
-  for (i = 0; i < count; i++) {
-    for (j = i+1; j < count; j++) {
+  for (int i = 0; i < count; i++) {
+    for (int j = i+1; j < count; j++) {
       const uint8_t *ptr_1_lo = ptrs[i];
       const uint8_t *ptr_1_hi = ((uint8_t*)ptrs[i]) + size - 1;
       const uint8_t *ptr_2_lo = ptrs[j];
@@ -45,12 +44,11 @@ int ARMCII_Iov_check_overlap(void **ptrs, int count, int size) {
     }
   }
 #else
-  int i;
   ctree_t ctree = CTREE_EMPTY;
 
   if (!ARMCII_GLOBAL_STATE.iov_checks) return 0;
 
-  for (i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++) {
     int conflict = ctree_insert(&ctree, ptrs[i], ((uint8_t*)ptrs[i]) + size - 1);
 
     if (conflict) {
@@ -80,7 +78,6 @@ int ARMCII_Iov_check_overlap(void **ptrs, int count, int size) {
   * @return          Non-zero (true) on success, zero (false) otherwise.
   */
 int ARMCII_Iov_check_same_allocation(void **ptrs, int count, int proc) {
-  int i;
   gmr_t *mreg;
   void *base, *extent;
 
@@ -90,7 +87,7 @@ int ARMCII_Iov_check_same_allocation(void **ptrs, int count, int proc) {
 
   /* If local, all must be local */
   if (mreg == NULL) {
-    for (i = 1; i < count; i++) {
+    for (int i = 1; i < count; i++) {
       mreg = gmr_lookup(ptrs[i], proc);
       if (mreg != NULL)
         return 0;
@@ -101,7 +98,7 @@ int ARMCII_Iov_check_same_allocation(void **ptrs, int count, int proc) {
     base   = mreg->slices[proc].base;
     extent = ((uint8_t*) base) + mreg->slices[proc].size;
 
-    for (i = 1; i < count; i++)
+    for (int i = 1; i < count; i++)
       if ( !(ptrs[i] >= base && ptrs[i] < extent) )
         return 0;
   }
@@ -172,11 +169,10 @@ int ARMCII_Iov_op_dispatch(enum ARMCII_Op_e op, void **src, void **dst, int coun
 int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int count, int elem_count,
     MPI_Datatype type, int proc) {
   
-  int i, ts = 0;
-  gmr_t * mreg;
+  int ts = 0;
   A1_datatype_t a1type;
 
-  for (i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++) {
     switch(op) {
       case ARMCII_OP_PUT:
         MPI_Type_size(type, &ts); /* probably always 1 */
@@ -206,7 +202,6 @@ int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int count, i
 int ARMCII_Iov_op_batched(enum ARMCII_Op_e op, void **src, void **dst, int count, int elem_count,
     MPI_Datatype type, int proc) {
 
-  int i;
   gmr_t *mreg;
   void *shr_ptr;
 
@@ -230,7 +225,7 @@ int ARMCII_Iov_op_batched(enum ARMCII_Op_e op, void **src, void **dst, int count
 
   gmr_lock(mreg, proc);
 
-  for (i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++) {
 
     if (   ARMCII_GLOBAL_STATE.iov_batched_limit > 0 
         && i % ARMCII_GLOBAL_STATE.iov_batched_limit == 0
@@ -274,7 +269,7 @@ int ARMCII_Iov_op_datatype(enum ARMCII_Op_e op, void **src, void **dst, int coun
     int           disp_rem[count];
     int           block_len[count];
     void         *dst_win_base;
-    int           dst_win_size, i, type_size;
+    int           dst_win_size, type_size;
     void        **buf_rem, **buf_loc;
     MPI_Aint      base_rem;
 
@@ -303,7 +298,7 @@ int ARMCII_Iov_op_datatype(enum ARMCII_Op_e op, void **src, void **dst, int coun
 
     MPI_Get_address(dst_win_base, &base_rem);
 
-    for (i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
       MPI_Aint target_rem;
       MPI_Get_address(buf_loc[i], &disp_loc[i]);
       MPI_Get_address(buf_rem[i], &target_rem);
