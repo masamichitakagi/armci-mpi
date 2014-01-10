@@ -29,7 +29,6 @@ int main(int argc, char **argv)
        if(buffer[i] != 10*nranks) {
           printf("Validation failed expected: %d actual: %d \n", 10*nranks, buffer[i]);
           fflush(stdout);
-          exit(-1);
        }  
     }
 

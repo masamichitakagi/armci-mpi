@@ -39,7 +39,6 @@ int main(int argc, char **argv)
              printf("[%d] Validation failed for msg size: %d at index: %d expected: %d actual: %d \n",
                      rank, msgsize, i, (2<<20 - 1), buffer[i]);
              fflush(stdout);
-             exit(-1);
           }  
        }
 

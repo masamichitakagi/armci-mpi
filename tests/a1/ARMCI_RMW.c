@@ -64,7 +64,6 @@ int main(int argc, char* argv[])
        if (complete[i] == 0) {
            printf("[%d] The RMW update failed at index: %d \n", rank, i);
            fflush(stdout);
-           exit(-1);
        }   
     }
     printf("[%d] The RMW update completed successfully \n", rank);

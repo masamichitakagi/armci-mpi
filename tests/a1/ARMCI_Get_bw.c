@@ -63,7 +63,6 @@ int main(int argc, char *argv[])
                     printf("Data validation failed At displacement : %d Expected : %lf Actual : %lf \n",
                             j, expected, *(buffer[rank] + j));
                     fflush(stdout);
-                    return -1;
                 }
             }
             for(int j=0; j<bufsize/sizeof(double); j++) {
