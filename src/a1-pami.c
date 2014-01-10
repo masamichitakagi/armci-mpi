@@ -173,6 +173,14 @@ int A1_Initialize(void)
         size_t pami_acc_dispatch_id                          = ACCUMULATE_DISPATCH_ID;
         int pami_acc_dispatch_cookie                         = world_rank; /* what is the point of this? */
 
+        /* The dispatch has to be registered with the local context otherwise PAMI_Send fails. */
+        result = PAMI_Dispatch_set(a1contexts[local_context_offset], 
+                                   pami_acc_dispatch_id, 
+                                   pami_acc_dispatch_fn, 
+                                   &pami_acc_dispatch_cookie, 
+                                   pami_acc_dispatch_hint);
+        A1_ASSERT(result == PAMI_SUCCESS,"PAMI_Dispatch_set");
+
         result = PAMI_Dispatch_set(a1contexts[remote_context_offset], 
                                    pami_acc_dispatch_id, 
                                    pami_acc_dispatch_fn, 
@@ -512,6 +520,7 @@ int A1_Acc(void *        local,
     acc.send.data.iov_len    = count*typesize;
     acc.send.dispatch        = ACCUMULATE_DISPATCH_ID;
     acc.send.dest            = ep;
+    acc.send.hints.use_shmem = PAMI_HINT_DISABLE;
     acc.events.cookie        = &active;
     acc.events.local_fn      = cb_done;
     acc.events.remote_fn     = cb_done;
@@ -520,7 +529,6 @@ int A1_Acc(void *        local,
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
 
     rc = PAMI_Send(a1contexts[local_context_offset], &acc);
-    //print_pami_result_text(rc);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Send");
 
     int attempts = 0;
