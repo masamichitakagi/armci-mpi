@@ -520,7 +520,7 @@ int A1_Acc(void *        local,
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_lock");
 
     rc = PAMI_Send(a1contexts[local_context_offset], &acc);
-    print_pami_result_text(rc);
+    //print_pami_result_text(rc);
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Send");
 
     int attempts = 0;

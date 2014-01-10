@@ -59,17 +59,18 @@ static void print_pami_result_text(pami_result_t r)
 {
     switch(r)
     {
-        case PAMI_SUCCESS     : printf("PAMI result = %16s \n", "PAMI_SUCCESS    ");
-        case PAMI_NERROR      : printf("PAMI result = %16s \n", "PAMI_NERROR     ");
-        case PAMI_ERROR       : printf("PAMI result = %16s \n", "PAMI_ERROR      ");
-        case PAMI_INVAL       : printf("PAMI result = %16s \n", "PAMI_INVAL      ");
-        case PAMI_UNIMPL      : printf("PAMI result = %16s \n", "PAMI_UNIMPL     ");
-        case PAMI_EAGAIN      : printf("PAMI result = %16s \n", "PAMI_EAGAIN     ");
-        case PAMI_ENOMEM      : printf("PAMI result = %16s \n", "PAMI_ENOMEM     ");
-        case PAMI_SHUTDOWN    : printf("PAMI result = %16s \n", "PAMI_SHUTDOWN   ");
-        case PAMI_CHECK_ERRNO : printf("PAMI result = %16s \n", "PAMI_CHECK_ERRNO");
-        case PAMI_OTHER       : printf("PAMI result = %16s \n", "PAMI_OTHER      ");
-        case PAMI_RESULT_EXT  : printf("PAMI result = %16s \n", "PAMI_RESULT_EXT ");
+        case PAMI_SUCCESS     : printf("PAMI result = %16s \n", "PAMI_SUCCESS    "); break;
+        case PAMI_NERROR      : printf("PAMI result = %16s \n", "PAMI_NERROR     "); break;
+        case PAMI_ERROR       : printf("PAMI result = %16s \n", "PAMI_ERROR      "); break;
+        case PAMI_INVAL       : printf("PAMI result = %16s \n", "PAMI_INVAL      "); break;
+        case PAMI_UNIMPL      : printf("PAMI result = %16s \n", "PAMI_UNIMPL     "); break;
+        case PAMI_EAGAIN      : printf("PAMI result = %16s \n", "PAMI_EAGAIN     "); break;
+        case PAMI_ENOMEM      : printf("PAMI result = %16s \n", "PAMI_ENOMEM     "); break;
+        case PAMI_SHUTDOWN    : printf("PAMI result = %16s \n", "PAMI_SHUTDOWN   "); break;
+        case PAMI_CHECK_ERRNO : printf("PAMI result = %16s \n", "PAMI_CHECK_ERRNO"); break;
+        case PAMI_OTHER       : printf("PAMI result = %16s \n", "PAMI_OTHER      "); break;
+        case PAMI_RESULT_EXT  : printf("PAMI result = %16s \n", "PAMI_RESULT_EXT "); break;
+        default               : printf("PAMI result = %16s \n", "NOT DEFINED     "); break;
     }
     return;
 }
