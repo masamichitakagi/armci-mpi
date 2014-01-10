@@ -56,8 +56,6 @@
 #define MAX_MSGSIZE 2*1024*1024
 #define ITERATIONS 20
 
-//#define DATA_VALIDATION  
-
 int main(int argc, char *argv[])
 {
 
@@ -125,7 +123,6 @@ int main(int argc, char *argv[])
             printf("%20d %20.4lf \n", msgsize, bandwidth);
             fflush(stdout);
 
-#ifdef DATA_VALIDATION 
             {
                 for(j=0; j<((iterations*msgsize)/sizeof(double)); j++)
                 {
@@ -143,7 +140,6 @@ int main(int argc, char *argv[])
                     *(buffer[rank] + j) = 1.0 + rank;
                 }
             }
-#endif
 
         }
 
