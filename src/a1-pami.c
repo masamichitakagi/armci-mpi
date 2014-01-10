@@ -69,9 +69,7 @@ static void accumulate_recv_cb(pami_context_t context,
         A1_ACC_MACRO(uint64_t, pipe_addr, h->addr, data_size);
         break;
       default:
-        A1_ASSERT(0,"accumulate_recv_cb: INVALID TYPE");
-        printf("accumulate_recv_cb: INVALID TYPE \n");
-        MPI_Abort(MPI_COMM_WORLD, 1);
+        ARMCII_Error("INVALID TYPE (%d)",a1type);
         break;
     }
 #if 0
@@ -303,9 +301,7 @@ int A1_Rmw(int                target,
         case A1_UINT32: type = PAMI_TYPE_UNSIGNED_INT;       break;
         case A1_UINT64: type = PAMI_TYPE_UNSIGNED_LONG_LONG; break;
         default:
-          A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
-          printf("A1_Rmw: INVALID TYPE \n");
-          MPI_Abort(MPI_COMM_WORLD, 1);
+          ARMCII_Error("INVALID TYPE (%d)",a1type);
           break;
     }
 
@@ -314,9 +310,7 @@ int A1_Rmw(int                target,
         case A1_FETCH_AND_ADD: op = PAMI_ATOMIC_FETCH_ADD; break;
         case A1_SWAP:          op = PAMI_ATOMIC_FETCH_SET; break;
         default:
-          A1_ASSERT(0,"A1_Rmw: INVALID TYPE");
-          printf("A1_Rmw: INVALID TYPE \n");
-          MPI_Abort(MPI_COMM_WORLD, 2);
+          ARMCII_Error("INVALID OPERATION (%d)",a1op);
           break;
     }
 
@@ -351,7 +345,7 @@ int A1_Rmw(int                target,
       A1_ASSERT(rc == PAMI_SUCCESS || rc == PAMI_EAGAIN,"PAMI_Context_advance (local)");
       attempts++;
       if (attempts > 1000000)
-        MPI_Abort(MPI_COMM_WORLD, 3);
+        ARMCII_Error("Too many attempts (%d) - deadlock likely.", attempts);
     }
 
     rc = PAMI_Context_unlock(a1contexts[local_context_offset]);

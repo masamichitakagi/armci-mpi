@@ -3,6 +3,9 @@
 
 #include <mpi.h>
 
+/* ARMCII error/assert macros */
+#include "debug.h"
+
 typedef enum
 {
   A1_INT32,  /**< int32            */
@@ -57,8 +60,7 @@ static inline void types_mpi_to_a1(MPI_Datatype mpi, A1_datatype_t * a1)
             *a1 = A1_UINT64; 
             break;
         default:
-            printf("MPI-to-A1 type conversion failed to find match.\n");
-            MPI_Abort(MPI_COMM_WORLD, 1);
+            ARMCII_Error("INVALID TYPE (%d)",mpi);
             break;
     }
     return;

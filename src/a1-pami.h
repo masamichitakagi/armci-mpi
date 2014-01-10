@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <pthread.h>
 
+/* ARMCII error/assert macros */
+#include "debug.h"
+
 #include "a1.h"
 
 #define NUM_CONTEXTS 2
@@ -48,8 +51,7 @@ static inline void types_a1_to_pami(A1_datatype_t a1, pami_type_t * pt, int * sz
             *sz = 8;
             break;
         default:
-          A1_ASSERT(0,"A1_Acc: INVALID TYPE");
-          MPI_Abort(MPI_COMM_WORLD, 1);
+          ARMCII_Error("INVALID TYPE (%d)",a1);
           break;
     }
     return;
