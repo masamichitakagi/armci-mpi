@@ -10,18 +10,21 @@
 int main (int argc, char * argv[])
 {
     MPI_Init(&argc, &argv);
-    A1_Initialize();
+    ARMCI_Init();
 
-    int rank = A1_Rank();
-    int size = A1_Size();
+    int rank;
+    int size;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     size_t n = (argc>1) ? atoi(argv[1]) : 1000;
     double * buffer = malloc(n*sizeof(double)); assert(buffer!=NULL);
     double ** myptrs;
-    ARMCI_Malloc(myptrs, (n*sizeof(double));
+    ARMCI_Malloc((void**)myptrs, n*sizeof(double));
 
     for (size_t i=0; i<n; i++)
-        myptrs[rank] = -137.137137137;
+        myptrs[rank][i] = -137.137137137;
 
     if (size<2) {
         printf("run on at least 2 processes\n");
@@ -36,16 +39,17 @@ int main (int argc, char * argv[])
             for (size_t i=0; i<n; i++)
                 buffer[i] = 100.0 + r;
 
-            A1_Put(buffer, n*sizeof(double), r, myptrs[r]);
+            ARMCI_Put(buffer, myptrs[r], n*sizeof(double), r);
             ARMCI_Fence(r);
 
             for (size_t i=0; i<n; i++)
                 buffer[i] = 1000000.0 + 10000.0*r;
 
-            A1_Acc(buffer, n, A1_DOUBLE, r, myptrs[r]);
+            double one = 1.0;
+            ARMCI_Acc(ARMCI_ACC_DBL, &one, buffer, myptrs[r], n, r);
             ARMCI_Fence(r);
 
-            A1_Get(r, myptrs[r], buffer, n*sizeof(double));
+            ARMCI_Get(r, myptrs[r], buffer, n*sizeof(double));
 
             for (size_t i=0; i<n; i++)
                 printf("%d: buffer[%ld] = %lf \n", r, (long)i, buffer[i]);
@@ -54,10 +58,10 @@ int main (int argc, char * argv[])
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    free(myptrs);
+    ARMCI_Free(myptrs[rank]);
     free(buffer);
 
-    A1_Finalize();
+    ARMCI_Finalize();
     MPI_Finalize();
 
     return 0;
