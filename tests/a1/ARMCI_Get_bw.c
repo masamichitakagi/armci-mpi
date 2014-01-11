@@ -46,10 +46,16 @@ int main(int argc, char *argv[])
         for (msgsize = (int)sizeof(double); msgsize <= max_msgsize; msgsize *= 2) {
             iterations = bufsize/msgsize;
             t_start = MPI_Wtime();
+#if NONBLOCKING
             for (int i = 0; i < iterations; i++) {
                 ARMCI_NbGet(&(buffer[dest][i*msgsize]),&(buffer[rank][i*msgsize]), msgsize, dest, &handle);
             }
             ARMCI_Wait(&handle);
+#else
+            for (int i = 0; i < iterations; i++) {
+                ARMCI_Get(&(buffer[dest][i*msgsize]),&(buffer[rank][i*msgsize]), msgsize, dest);
+            }
+#endif
 
             t_stop = MPI_Wtime();
             d_total = (iterations * msgsize) / (1024 * 1024);
@@ -59,9 +65,9 @@ int main(int argc, char *argv[])
             fflush(stdout);
             
             for(int j=0; j<((iterations*msgsize)/sizeof(double)); j++) {
-                if(*(buffer[rank] + j) != expected) {
+                if(buffer[rank][j] != expected) {
                     printf("Data validation failed At displacement : %d Expected : %lf Actual : %lf \n",
-                            j, expected, *(buffer[rank] + j));
+                            j, expected, buffer[rank][j]);
                     fflush(stdout);
                 }
             }

@@ -269,6 +269,20 @@ int A1_Rank(void)
 }
 
 /*
+ * \brief Cause remote completion of all comm to target
+ *
+ * \param[out] rc           The error code.
+ * \param[in] target        Process id.
+ *
+ * \ingroup UTIL
+ */
+int A1_Flush(int target)
+{
+    /* This is a NO-OP because all RMA returns after remote completion. For now... */
+    return 0;
+}
+
+/*
  * \brief Blocking RMW on arbitrary data.
  *
  * \param[out] rc                The error code.

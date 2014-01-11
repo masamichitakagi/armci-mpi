@@ -17,7 +17,7 @@ int main (int argc, char * argv[])
 
     size_t n = (argc>1) ? atoi(argv[1]) : 1000;
     double *  buffer = malloc(n*sizeof(double)); assert(buffer!=NULL);
-    double ** myptrs = malloc(size*sizeof(double*)); assert(myptr!=NULL);
+    double ** myptrs = malloc(size*sizeof(double*)); assert(myptrs!=NULL);
 
     MPI_Allgather(&buffer, sizeof(double*), MPI_BYTE,
                   myptrs,  sizeof(double*), MPI_BYTE,
@@ -26,24 +26,41 @@ int main (int argc, char * argv[])
     printf("%d: buffer = %p \n", rank, buffer);
     if (rank==0)
         for (int i=0; i<size; i++)
-            printf("myptrs[%d] = %p \n", rank, myptrs[i]);
-/*
-    A1_Put(void * local,
-           size_t bytes,
-           int    target,
-           void * remote);
+            printf("myptrs[%d] = %p \n", i, myptrs[i]);
 
-    A1_Acc(void *        local,
-           size_t        count,
-           A1_datatype_t type,
-           int           target,
-           void *        remote);
+    for (size_t i=0; i<n; i++)
+        buffer[i] = -137.137137137;
 
-    A1_Get(int    target,
-           void * remote,
-           void * local,
-           size_t bytes);
-*/
+    if (size<2) {
+        printf("run on at least 2 processes\n");
+        MPI_Abort(MPI_COMM_WORLD,size);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (rank==0) {
+        for (int r=1; r<size; r++) {
+
+            for (size_t i=0; i<n; i++)
+                buffer[i] = 100.0 + r;
+
+            A1_Put(buffer, n*sizeof(double), r, myptrs[r]);
+            A1_Flush(r);
+
+            for (size_t i=0; i<n; i++)
+                buffer[i] = 1000000.0 + 10000.0*r;
+
+            A1_Acc(buffer, n, A1_DOUBLE, r, myptrs[r]);
+            A1_Flush(r);
+
+            A1_Get(r, myptrs[r], buffer, n*sizeof(double));
+
+            for (size_t i=0; i<n; i++)
+                printf("%d: buffer[%ld] = %lf \n", r, (long)i, buffer[i]);
+        }
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     free(myptrs);
     free(buffer);
