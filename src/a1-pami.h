@@ -9,6 +9,8 @@
 
 #include "a1.h"
 
+#include "a1-bgq-atomics.h"
+
 #define NUM_CONTEXTS 2
 const int local_context_offset  = 0;
 const int remote_context_offset = 1;
@@ -18,8 +20,12 @@ extern pami_context_t * a1contexts;
 
 static void cb_done(void * ctxt, void * clientdata, pami_result_t err)
 {
-  int * active = (int *) clientdata;
+  int64_t * active = (int64_t *) clientdata;
+#if 0
   (*active)--;
+#else
+  Dec64(active);
+#endif
 }
 
 static inline void types_a1_to_pami(A1_datatype_t a1, pami_type_t * pt, int * sz)

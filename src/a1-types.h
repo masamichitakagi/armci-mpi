@@ -25,8 +25,8 @@ typedef enum
 /* This is PAMI-specific.  Fix (generalize) later. */
 typedef struct
 {
-    int local;
-    int remote;
+    uint64_t local;
+    uint64_t remote;
 } A1_handle_t;
 
 static inline void types_mpi_to_a1(MPI_Datatype mpi, A1_datatype_t * a1)
