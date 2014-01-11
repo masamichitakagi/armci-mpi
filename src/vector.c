@@ -166,21 +166,18 @@ int ARMCII_Iov_op_dispatch(enum ARMCII_Op_e op, void **src, void **dst, int coun
 
 /** Safe implementation of the ARMCI IOV operation
   */
-int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int count, int elem_count,
+int ARMCII_Iov_op_safe(enum ARMCII_Op_e op, void **src, void **dst, int byte_count, int elem_count,
     MPI_Datatype type, int proc) {
   
-  int ts = 0;
   A1_datatype_t a1type;
 
   for (int i = 0; i < count; i++) {
     switch(op) {
       case ARMCII_OP_PUT:
-        MPI_Type_size(type, &ts); /* probably always 1 */
-        A1_Put(src[i], (size_t)ts*elem_count, proc, dst[i]);
+        A1_Put(src[i], byte_count, proc, dst[i]);
         break;
       case ARMCII_OP_GET:
-        MPI_Type_size(type, &ts); /* probably always 1 */
-        A1_Get(proc, dst[i], src[i], (size_t)ts*elem_count);
+        A1_Get(proc, dst[i], src[i], byte_count);
         break;
       case ARMCII_OP_ACC:
         types_mpi_to_a1(type, &a1type);
