@@ -26,23 +26,23 @@ static inline void types_a1_to_pami(A1_datatype_t a1, pami_type_t * pt, int * sz
 {
     switch (a1)
     {
-        case A1_INT32:  
+        case A1_INT32:
             *pt = PAMI_TYPE_SIGNED_INT;
             *sz = 4;
             break;
-        case A1_INT64:  
+        case A1_INT64:
             *pt = PAMI_TYPE_SIGNED_LONG_LONG;
             *sz = 8;
             break;
-        case A1_UINT32: 
+        case A1_UINT32:
             *pt = PAMI_TYPE_UNSIGNED_INT;
             *sz = 4;
             break;
-        case A1_UINT64: 
+        case A1_UINT64:
             *pt = PAMI_TYPE_UNSIGNED_LONG_LONG;
             *sz = 8;
             break;
-        case A1_FLOAT: 
+        case A1_FLOAT:
             *pt = PAMI_TYPE_FLOAT;
             *sz = 4;
             break;
