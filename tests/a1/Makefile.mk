@@ -6,6 +6,7 @@ check_PROGRAMS += \
                   tests/a1/test_hello                \
                   tests/a1/test_rmw32                \
                   tests/a1/test_rma                  \
+                  tests/a1/test_armci_rma            \
                   tests/a1/ARMCI_AllFlushAll_latency \
                   tests/a1/ARMCI_Bcast               \
                   tests/a1/ARMCI_FlushAll_latency    \
@@ -30,6 +31,7 @@ TESTS          += \
                   tests/a1/test_hello                \
                   tests/a1/test_rmw32                \
                   tests/a1/test_rma                  \
+                  tests/a1/test_armci_rma            \
                   tests/a1/ARMCI_AllFlushAll_latency \
                   tests/a1/ARMCI_Bcast               \
                   tests/a1/ARMCI_FlushAll_latency    \
@@ -53,6 +55,7 @@ TESTS          += \
 tests_a1_test_hello_LDADD = libarmci.la
 tests_a1_test_rmw32_LDADD = libarmci.la
 tests_a1_test_rma_LDADD = libarmci.la
+tests_a1_test_armci_rma_LDADD = libarmci.la
 tests_a1_ARMCI_AllFlushAll_latency_LDADD = libarmci.la
 tests_a1_ARMCI_Bcast_LDADD = libarmci.la
 tests_a1_ARMCI_FlushAll_latency_LDADD = libarmci.la
