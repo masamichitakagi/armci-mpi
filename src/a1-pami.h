@@ -20,11 +20,11 @@ extern pami_context_t * a1contexts;
 
 static void cb_done(void * ctxt, void * clientdata, pami_result_t err)
 {
-  int64_t * active = (int64_t *) clientdata;
+  int32_t * active = (int32_t *) clientdata;
 #if 0
   (*active)--;
 #else
-  Dec64(active);
+  Dec32(active);
 #endif
 }
 
@@ -63,6 +63,7 @@ static inline void types_a1_to_pami(A1_datatype_t a1, pami_type_t * pt, int * sz
     return;
 }
 
+#if 0 // UNUSED
 static void print_pami_result_text(pami_result_t r)
 {
     switch(r)
@@ -82,6 +83,7 @@ static void print_pami_result_text(pami_result_t r)
     }
     return;
 }
+#endif
 
 #define A1_ACC_MACRO(datatype, source, target, bytes)                       \
    do {                                                                     \

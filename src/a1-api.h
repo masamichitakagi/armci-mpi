@@ -42,6 +42,16 @@ int A1_Rank(void);
 int A1_Flush(int target);
 
 /*
+ * \brief Wait for 
+ *
+ * \param[out] rc           The error code.
+ * \param[in] target        Process id.
+ *
+ * \ingroup UTIL
+ */
+int A1_Wait(A1_handle_t * handle);
+
+/*
  * \brief Blocking RMW on arbitrary data.
  *
  * \param[out] rc                The error code.

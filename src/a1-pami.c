@@ -15,8 +15,6 @@ int world_rank = -1;
 pami_client_t a1client;
 pami_context_t * a1contexts = NULL;
 
-A1_handle_t A1_global_implicit_handle;
-
 /************ ACCUMULATE STUFF ************/
 
 #define ACCUMULATE_DISPATCH_ID 12
@@ -27,16 +25,18 @@ typedef struct
     void * addr;
 #if 0
     /* scaling factor; currently unused */
-    union scaling { int32_t i; int64_t l; float f; double d; }
+    union scaling { int32_t i; int64_t l; uint32_t ui; uint64_t ul; float f; double d; }
 #endif
     A1_datatype_t type;
 }
 pami_acc_header_t;
 
+#if 0 // UNUSED
 static void accumulate_done_cb(pami_context_t context, void * cookie, pami_result_t result)
 {
   return;
 }
+#endif
 
 static void accumulate_recv_cb(pami_context_t context,
                                void * cookie,
@@ -529,7 +529,7 @@ int A1_Acc(void *        local,
     acc.send.data.iov_len    = count*typesize;
     acc.send.dispatch        = ACCUMULATE_DISPATCH_ID;
     acc.send.dest            = ep;
-    acc.send.hints.use_shmem = PAMI_HINT_DISABLE;
+    //acc.send.hints.use_shmem = PAMI_HINT_DISABLE;
     acc.events.cookie        = &active;
     acc.events.local_fn      = cb_done;
     acc.events.remote_fn     = cb_done;
@@ -602,6 +602,7 @@ int A1_Iget(int           target,
     A1_ASSERT(rc == PAMI_SUCCESS,"PAMI_Context_unlock");
 
     return 0;
+}
 
 /*
  * \brief Blocking copy of contiguous data from local memory to remote memory.
@@ -673,7 +674,7 @@ int A1_Iput(void *        local,
 
 int A1_Iacc(void *        local,
             size_t        count,
-            A1_datatype_t type,
+            A1_datatype_t a1type,
             int           target,
             void *        remote,
             A1_handle_t * handle)
