@@ -20,7 +20,7 @@ int main (int argc, char * argv[])
 
     size_t n = (argc>1) ? atoi(argv[1]) : 1000;
     double * buffer = malloc(n*sizeof(double)); assert(buffer!=NULL);
-    double ** myptrs;
+    double ** myptrs = NULL;
     ARMCI_Malloc((void**)myptrs, n*sizeof(double));
 
     for (size_t i=0; i<n; i++)
@@ -49,7 +49,7 @@ int main (int argc, char * argv[])
             ARMCI_Acc(ARMCI_ACC_DBL, &one, buffer, myptrs[r], n, r);
             ARMCI_Fence(r);
 
-            ARMCI_Get(r, myptrs[r], buffer, n*sizeof(double));
+            ARMCI_Get(myptrs[r], buffer, n*sizeof(double), r);
 
             for (size_t i=0; i<n; i++)
                 printf("%d: buffer[%ld] = %lf \n", r, (long)i, buffer[i]);
