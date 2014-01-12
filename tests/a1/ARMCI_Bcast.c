@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     buffer = (int *) malloc(MAX_MSG_SIZE);
 
     for(int i=0; i<MAX_MSG_SIZE/sizeof(int); i++) {
-        buffer[i] = (rank==0) ? (2<<20 - 1) : 0;
+        buffer[i] = (rank==0) ? ((2<<20) - 1) : 0;
     }
 
     if(rank == 0) {
@@ -34,16 +34,16 @@ int main(int argc, char **argv)
        armci_msg_bcast(buffer, msgsize, 0); 
 
        for(int i=0; i<msgsize/sizeof(int); i++) {
-          if(buffer[i] != (2<<20 - 1))
+          if(buffer[i] != ((2<<20) - 1))
           {
              printf("[%d] Validation failed for msg size: %d at index: %d expected: %d actual: %d \n",
-                     rank, msgsize, i, (2<<20 - 1), buffer[i]);
+                     rank, msgsize, i, ((2<<20) - 1), buffer[i]);
              fflush(stdout);
           }  
        }
 
        for(int i=0; i<MAX_MSG_SIZE/sizeof(int); i++) {
-          buffer[i] = (rank==0) ? (2<<20 - 1) : 0;
+          buffer[i] = (rank==0) ? ((2<<20) - 1) : 0;
        }
 
        ARMCI_Barrier();
