@@ -10,11 +10,11 @@
 int main(int argc, char **argv)
 {
 
-    int i, j, rank, nranks, msgsize, peer;
+    int rank, nranks, peer;
     int dim;
     unsigned long bufsize;
     double **buffer;
-    double t_start, t_stop, t_latency;
+    double t_start, t_stop;
     int count[2], src_stride, trg_stride, stride_level;
     double scaling;
     int provided;
@@ -41,7 +41,7 @@ int main(int argc, char **argv)
         fflush(stdout);
     }
 
-    for (i = 0; i < bufsize / sizeof(double); i++)
+    for (int i = 0; i < bufsize / sizeof(double); i++)
     {
         *(buffer[rank] + i) = 1.0 + rank;
     }
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 
                 peer = 1;
 
-                for (i = 0; i < ITERATIONS + SKIP; i++)
+                for (int i = 0; i < ITERATIONS + SKIP; i++)
                 {
 
                     if (i == SKIP) t_start = MPI_Wtime();
@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
                 ARMCI_Barrier();
 
-                for (i = 0; i < ITERATIONS + SKIP; i++)
+                for (int i = 0; i < ITERATIONS + SKIP; i++)
                 {
 
                     if (i == SKIP) t_start = MPI_Wtime();
@@ -126,9 +126,9 @@ int main(int argc, char **argv)
 
                 ARMCI_Barrier();
 
-                for (i = 0; i < dim; i++)
+                for (int i = 0; i < dim; i++)
                 {
-                    for (j = 0; j < dim; j++)
+                    for (int j = 0; j < dim; j++)
                     {
                         if (*(buffer[rank] + i * MAX_DIM + j) != ((1.0 + rank)
                                 + scaling * (1.0 + peer) * (ITERATIONS + SKIP)))
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
                     }
                 }
 
-                for (i = 0; i < bufsize / sizeof(double); i++)
+                for (int i = 0; i < bufsize / sizeof(double); i++)
                 {
                     *(buffer[rank] + i) = 1.0 + rank;
                 }
@@ -153,9 +153,9 @@ int main(int argc, char **argv)
 
                 ARMCI_Barrier();
 
-                for (i = 0; i < dim; i++)
+                for (int i = 0; i < dim; i++)
                 {
-                    for (j = 0; j < dim; j++)
+                    for (int j = 0; j < dim; j++)
                     {
                         if (*(buffer[rank] + i * MAX_DIM + j) != ((1.0 + rank)
                                 + scaling * (1.0 + peer) * (ITERATIONS + SKIP)))
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
                     }
                 }
 
-                for (i = 0; i < bufsize / sizeof(double); i++)
+                for (int i = 0; i < bufsize / sizeof(double); i++)
                 {
                     *(buffer[rank] + i) = 1.0 + rank;
                 }

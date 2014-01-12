@@ -9,11 +9,11 @@
 
 int main(int argc, char *argv[]) {
 
-   int i, j, rank, nranks, msgsize;
+   int rank, nranks;
    int dim;
    long bufsize;
    double **buffer;
-   double t_start, t_stop, t_latency;
+   double t_start, t_stop;
    int count[2], src_stride, trg_stride, stride_level, peer;
    double expected, actual;
    int provided;
@@ -28,13 +28,13 @@ int main(int argc, char *argv[]) {
    buffer = (double **) malloc(sizeof(double *) * nranks);
    ARMCI_Malloc((void **) buffer, bufsize);
 
-   for(i=0; i< bufsize/sizeof(double); i++) {
+   for(int i=0; i< bufsize/sizeof(double); i++) {
        *(buffer[rank] + i) = 1.0 + rank;
    }
 
    if(rank == 0) {
      printf("ARMCI_PutS Latency - local and remote completions - in usec \n");
-     printf("%30s %22s \n", "Dimensions(array of doubles)", "Latency-LocalCompeltion", "Latency-RemoteCompletion");
+     printf("%s %s %s\n", "Dimensions(array of doubles)", "Latency-LocalCompeltion", "Latency-RemoteCompletion");
      fflush(stdout);
    }
 
@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
         {
           peer = 1;          
  
-          for(i=0; i<ITERATIONS+SKIP; i++) { 
+          for(int i=0; i<ITERATIONS+SKIP; i++) { 
 
              if(i == SKIP)
                  t_start = MPI_Wtime();
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 
           ARMCI_Barrier();
 
-          for(i=0; i<ITERATIONS+SKIP; i++) {
+          for(int i=0; i<ITERATIONS+SKIP; i++) {
   
              if(i == SKIP)
                 t_start = MPI_Wtime();
@@ -97,9 +97,8 @@ int main(int argc, char *argv[]) {
 
             ARMCI_Barrier();
 
-            for(i=0; i<dim; i++)
-            {
-               for(j=0; j<dim; j++)
+            for(int i=0; i<dim; i++) {
+               for(int j=0; j<dim; j++)
                {
                    actual = *(buffer[rank] + i*MAX_DIM + j);
                    if(actual != expected)
@@ -112,7 +111,7 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            for(i=0; i< bufsize/sizeof(double); i++) {
+            for(int i=0; i< bufsize/sizeof(double); i++) {
                 *(buffer[rank] + i) = 1.0 + rank;
             }
 
@@ -120,10 +119,8 @@ int main(int argc, char *argv[]) {
 
             ARMCI_Barrier();
 
-            for(i=0; i<dim; i++)
-            {
-               for(j=0; j<dim; j++)
-               {
+            for(int i=0; i<dim; i++) {
+               for(int j=0; j<dim; j++) {
                    actual = *(buffer[rank] + i*MAX_DIM + j);
                    if(actual != expected)
                    {
@@ -135,7 +132,7 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            for(i=0; i< bufsize/sizeof(double); i++) {
+            for(int i=0; i< bufsize/sizeof(double); i++) {
                 *(buffer[rank] + i) = 1.0 + rank;
             }
 
