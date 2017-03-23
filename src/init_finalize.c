@@ -196,7 +196,8 @@ int PARMCI_Init(void) {
 
   /* Shared buffer handling method */
 
-  ARMCII_GLOBAL_STATE.shr_buf_method = ARMCII_SHR_BUF_COPY;
+  /* The default used to be COPY.  NOGUARD requires MPI_WIN_UNIFIED. */
+  ARMCII_GLOBAL_STATE.shr_buf_method = ARMCII_SHR_BUF_NOGUARD;
 
   var = ARMCII_Getenv("ARMCI_SHR_BUF_METHOD");
   if (var != NULL) {
@@ -300,18 +301,20 @@ int PARMCI_Init(void) {
     }
 
     MPI_Barrier(ARMCI_GROUP_WORLD.comm);
+  }
 
 #ifdef HAVE_PTHREADS
     /* Create the asynchronous progress thread */
     {
-        progress_active = 1;
-        int rc = pthread_create(&ARMCI_Progress_thread, NULL, &progress_function, &progress_active);
-        if (rc) {
-            ARMCII_Warning("ARMCI progress thread creation failed (%d).\n", rc);
+        if(ARMCII_GLOBAL_STATE.progress_thread) {
+            progress_active = 1;
+            int rc = pthread_create(&ARMCI_Progress_thread, NULL, &progress_function, &progress_active);
+            if (rc) {
+                ARMCII_Warning("ARMCI progress thread creation failed (%d).\n", rc);
+            }
         }
     }
 #endif
-  }
 
   return 0;
 }
@@ -392,10 +395,12 @@ int PARMCI_Finalize(void) {
 #ifdef HAVE_PTHREADS
     /* Destroy the asynchronous progress thread */
     {
-        progress_active = 0;
-        int rc = pthread_join(ARMCI_Progress_thread, NULL);
-        if (rc) {
-            ARMCII_Warning("ARMCI progress thread join failed (%d).\n", rc);
+        if(ARMCII_GLOBAL_STATE.progress_thread) {
+            progress_active = 0;
+            int rc = pthread_join(ARMCI_Progress_thread, NULL);
+            if (rc) {
+                ARMCII_Warning("ARMCI progress thread join failed (%d).\n", rc);
+            }
         }
     }
 #endif

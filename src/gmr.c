@@ -63,7 +63,7 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
   /* Allocate my slice of the GMR */
   alloc_slices[alloc_me].size = local_size;
 
-  MPI_Info alloc_shm_info;
+  MPI_Info alloc_shm_info = MPI_INFO_NULL;
   if (ARMCII_GLOBAL_STATE.use_alloc_shm) {
       MPI_Info_create(&alloc_shm_info);
       MPI_Info_set(alloc_shm_info, "alloc_shm", "true");
@@ -72,6 +72,11 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
   }
 
   if (ARMCII_GLOBAL_STATE.use_win_allocate) {
+
+      /* give hint to CASPER to avoid extra work for lock permission */
+      if (alloc_shm_info == MPI_INFO_NULL)
+          MPI_Info_create(&alloc_shm_info);
+      MPI_Info_set(alloc_shm_info, "epochs_used", "lockall");
 
       MPI_Win_allocate( (MPI_Aint) local_size, 1, alloc_shm_info, group->comm, &(alloc_slices[alloc_me].base), &mreg->window);
 
@@ -92,7 +97,7 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
 
   } /* win allocate/create */
 
-  if (ARMCII_GLOBAL_STATE.use_alloc_shm) {
+  if (alloc_shm_info != MPI_INFO_NULL) {
       MPI_Info_free(&alloc_shm_info);
   }
 
@@ -148,6 +153,7 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
                    mreg->window);
 
   {
+    int unified;
     void    *attr_ptr;
     int     *attr_val;
     int      attr_flag;
@@ -158,17 +164,28 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
       if (world_me==0) {
         if ( (*attr_val)==MPI_WIN_SEPARATE ) {
           printf("MPI_WIN_MODEL = MPI_WIN_SEPARATE \n" );
+          unified = 0;
         } else if ( (*attr_val)==MPI_WIN_UNIFIED ) {
 #ifdef DEBUG
           printf("MPI_WIN_MODEL = MPI_WIN_UNIFIED \n" );
 #endif
+          unified = 1;
         } else {
           printf("MPI_WIN_MODEL = %d (not UNIFIED or SEPARATE) \n", *attr_val );
+          unified = 0;
         }
       }
     } else {
-      if (world_me==0)
+      if (world_me==0) {
         printf("MPI_WIN_MODEL attribute missing \n");
+        unified = 0;
+      }
+    }
+    if (!unified && (ARMCII_GLOBAL_STATE.shr_buf_method == ARMCII_SHR_BUF_NOGUARD) ) {
+      if (world_me==0) {
+        printf("Please re-run with ARMCI_SHR_BUF_METHOD=COPY\n");
+      }
+      /* ARMCI_Error("MPI_WIN_SEPARATE with NOGUARD", 1); */
     }
   }
 
