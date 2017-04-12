@@ -59,12 +59,25 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
                                     duplicated the group (communicator). */
 
   mreg->nslices        = world_nproc;
+#ifdef USE_MPI2
+  mreg->access_mode    = ARMCIX_MODE_ALL;
+  mreg->lock_state     = GMR_LOCK_UNLOCKED;
+  mreg->dla_lock_count = 0;
+#endif
   mreg->prev           = NULL;
   mreg->next           = NULL;
 
   /* Allocate my slice of the GMR */
   alloc_slices[alloc_me].size = local_size;
 
+#ifdef USE_MPI2
+  if (local_size == 0) {
+    alloc_slices[alloc_me].base = NULL;
+  } else {
+    MPI_Alloc_mem(local_size, MPI_INFO_NULL, &(alloc_slices[alloc_me].base));
+    ARMCII_Assert(alloc_slices[alloc_me].base != NULL);
+  }
+#else
   MPI_Info alloc_shm_info = MPI_INFO_NULL;
   if (ARMCII_GLOBAL_STATE.use_alloc_shm) {
       MPI_Info_create(&alloc_shm_info);
@@ -102,9 +115,14 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
   if (alloc_shm_info != MPI_INFO_NULL) {
       MPI_Info_free(&alloc_shm_info);
   }
+#endif
 
   /* Debugging: Zero out shared memory if enabled */
   if (ARMCII_GLOBAL_STATE.debug_alloc && local_size > 0) {
+#ifdef USE_MPI2
+    /* why did we remove this from the MPI-3 RMA code??? */
+    ARMCII_Assert(alloc_slices[alloc_me].base != NULL);
+#endif
     ARMCII_Bzero(alloc_slices[alloc_me].base, local_size);
   }
 
@@ -130,6 +148,10 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
     return NULL;
   }
 
+#ifdef USE_MPI2
+  MPI_Win_create(alloc_slices[alloc_me].base, (MPI_Aint) local_size, 1, MPI_INFO_NULL, group->comm, &mreg->window);
+#endif
+
   /* Populate the base pointers array */
   for (i = 0; i < alloc_nproc; i++)
     base_ptrs[i] = alloc_slices[i].base;
@@ -151,6 +173,12 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
   MPI_Group_free(&world_group);
   MPI_Group_free(&alloc_group);
 
+#ifdef USE_MPI2
+  /* Create the RMW mutex: Keeps RMW operations atomic wrt each other */
+  mreg->rmw_mutex = ARMCIX_Create_mutexes_hdl(1, group);
+#endif
+
+#ifndef USE_MPI2
   MPI_Win_lock_all((ARMCII_GLOBAL_STATE.rma_nocheck) ? MPI_MODE_NOCHECK : 0,
                    mreg->window);
 
@@ -190,6 +218,7 @@ gmr_t *gmr_create(gmr_size_t local_size, void **base_ptrs, ARMCI_Group *group) {
       /* ARMCI_Error("MPI_WIN_SEPARATE with NOGUARD", 1); */
     }
   }
+#endif
 
   /* Append the new region onto the region list */
   if (gmr_list == NULL) {
@@ -258,6 +287,19 @@ void gmr_destroy(gmr_t *mreg, ARMCI_Group *group) {
   /* If it's still not found, the user may have passed the wrong group */
   ARMCII_Assert_msg(mreg != NULL, "Could not locate the desired allocation");
 
+#ifdef USE_MPI2
+  switch (mreg->lock_state) {
+    case GMR_LOCK_UNLOCKED:
+      break;
+    case GMR_LOCK_DLA:
+      ARMCII_Warning("Releasing direct local access before freeing shared allocation\n");
+      gmr_dla_unlock(mreg);
+      break;
+    default:
+      ARMCII_Error("Unable to free locked memory region (%d)\n", mreg->lock_state);
+  }
+#endif
+
   /* Remove from the list of mem regions */
   if (mreg->prev == NULL) {
     ARMCII_Assert(gmr_list == mreg);
@@ -273,18 +315,24 @@ void gmr_destroy(gmr_t *mreg, ARMCI_Group *group) {
   }
 
   ARMCII_Assert_msg(mreg->window != MPI_WIN_NULL, "A non-null mreg contains a null window.");
+#ifndef USE_MPI2
   MPI_Win_unlock_all(mreg->window);
+#endif
 
   /* Destroy the window and free all buffers */
   MPI_Win_free(&mreg->window);
 
-  if (!ARMCII_GLOBAL_STATE.use_win_allocate) {
-    if (mreg->slices[world_me].base != NULL) {
-      MPI_Free_mem(mreg->slices[world_me].base);
-    }
+#ifndef USE_MPI2
+  if (!ARMCII_GLOBAL_STATE.use_win_allocate)
+#endif
+  if (mreg->slices[world_me].base != NULL) {
+    MPI_Free_mem(mreg->slices[world_me].base);
   }
 
   free(mreg->slices);
+#ifdef USE_MPI2
+  ARMCIX_Destroy_mutexes_hdl(mreg->rmw_mutex);
+#endif
   free(mreg);
 }
 
@@ -381,9 +429,15 @@ int gmr_put_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src_type,
 
   // Perform checks
   MPI_Type_get_true_extent(dst_type, &lb, &extent);
+#ifdef USE_MPI2
+  ARMCII_Assert(mreg->lock_state != GMR_LOCK_UNLOCKED);
+#endif
   ARMCII_Assert_msg(disp >= 0 && disp < mreg->slices[proc].size, "Invalid remote address");
   ARMCII_Assert_msg(disp + dst_count*extent <= mreg->slices[proc].size, "Transfer is out of range");
 
+#ifdef USE_MPI2
+  MPI_Put(src, src_count, src_type, grp_proc, (MPI_Aint) disp, dst_count, dst_type, mreg->window);
+#else
   if (ARMCII_GLOBAL_STATE.rma_atomicity) {
       MPI_Accumulate(src, src_count, src_type, grp_proc,
                      (MPI_Aint) disp, dst_count, dst_type, MPI_REPLACE, mreg->window);
@@ -391,6 +445,7 @@ int gmr_put_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src_type,
       MPI_Put(src, src_count, src_type, grp_proc,
               (MPI_Aint) disp, dst_count, dst_type, mreg->window);
   }
+#endif
 
   return 0;
 }
@@ -443,9 +498,15 @@ int gmr_get_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src_type,
 
   // Perform checks
   MPI_Type_get_true_extent(src_type, &lb, &extent);
+#ifdef USE_MPI2
+  ARMCII_Assert(mreg->lock_state != GMR_LOCK_UNLOCKED);
+#endif
   ARMCII_Assert_msg(disp >= 0 && disp < mreg->slices[proc].size, "Invalid remote address");
   ARMCII_Assert_msg(disp + src_count*extent <= mreg->slices[proc].size, "Transfer is out of range");
 
+#ifdef USE_MPI2
+  MPI_Get(dst, dst_count, dst_type, grp_proc, (MPI_Aint) disp, src_count, src_type, mreg->window);
+#else
   if (ARMCII_GLOBAL_STATE.rma_atomicity) {
       MPI_Get_accumulate(NULL, 0, MPI_BYTE, dst, dst_count, dst_type, grp_proc,
                          (MPI_Aint) disp, src_count, src_type, MPI_NO_OP, mreg->window);
@@ -453,6 +514,7 @@ int gmr_get_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src_type,
       MPI_Get(dst, dst_count, dst_type, grp_proc,
               (MPI_Aint) disp, src_count, src_type, mreg->window);
   }
+#endif
 
   return 0;
 }
@@ -506,6 +568,9 @@ int gmr_accumulate_typed(gmr_t *mreg, void *src, int src_count, MPI_Datatype src
 
   // Perform checks
   MPI_Type_get_true_extent(dst_type, &lb, &extent);
+#ifdef USE_MPI2
+  ARMCII_Assert(mreg->lock_state != GMR_LOCK_UNLOCKED);
+#endif
   ARMCII_Assert_msg(disp >= 0 && disp < mreg->slices[proc].size, "Invalid remote address");
   ARMCII_Assert_msg(disp + dst_count*extent <= mreg->slices[proc].size, "Transfer is out of range");
 
