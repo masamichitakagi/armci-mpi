@@ -2,6 +2,9 @@
  * Copyright (C) 2010. See COPYRIGHT in top-level directory.
  */
 
+#define _GNU_SOURCE             /* for async progress */
+#include <sched.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,11 +38,53 @@
 
 #endif
 
+#include <unistd.h> /* for syscall() */
+//#include <uti.h> /* for async progress */
+
 int progress_active;
 pthread_t ARMCI_Progress_thread;
 
+static pthread_t thr;
+static pthread_mutex_t mutex;
+static pthread_cond_t cond;
+static volatile int flag;
+
+static MPI_Comm progress_comm;
+static int progress_refc;
+#define WAKE_TAG 100
+
 static void * progress_function(void * arg)
 {
+#if 1
+	int rc;
+	MPI_Request req;
+	int completed;
+	if ((rc = MPI_Irecv(NULL, 0, MPI_CHAR, 0, WAKE_TAG, progress_comm, &req)) != MPI_SUCCESS) {
+		printf("%s: ERROR: MPI_Irecv failed (%d)\n", __FUNCTION__, rc);
+	}
+#if 0
+	completed = 0;
+	while (!completed) {
+		if ((rc = MPI_Test(&req, &completed, MPI_STATUS_IGNORE)) != MPI_SUCCESS) {
+			printf("%s: ERROR: MPI_Test failed (%d)\n", __FUNCTION__, rc);
+			break;
+		}
+		//sched_yield();
+	}
+#else
+	if ((rc = MPI_Wait(&req, MPI_STATUS_IGNORE)) != MPI_SUCCESS) {
+		printf("%s: ERROR: MPI_Wait failed (%d)\n", __FUNCTION__, rc);
+	}
+#endif
+
+#if 1
+	pthread_mutex_lock(&mutex);
+	flag = 1;
+	pthread_cond_signal(&cond);
+	pthread_mutex_unlock(&mutex);
+#endif
+	//printf("%s: exiting\n", __FUNCTION__);
+#else
     volatile int * active = (volatile int*)arg;
 #if defined(HAVE_NANOSLEEP)
     int naptime = 1000 * ARMCII_GLOBAL_STATE.progress_usleep;
@@ -61,6 +106,7 @@ static void * progress_function(void * arg)
     pthread_exit(NULL);
 
     return NULL;
+#endif
 }
 #endif
 
@@ -328,6 +374,181 @@ int PARMCI_Init(void) {
   return 0;
 }
 
+void armci_init_async_thread_() {
+#if 1
+    int mpi_thread_level;
+	int rc;
+	char *my_async_progress_str;
+	pthread_attr_t attr;
+	cpu_set_t cpuset;
+	char *async_progress_pin_str;
+	int progress_cpus[1024];
+	int n_progress_cpus = 0;
+	char *list, *token;
+	char *rank_str;
+	int rank;
+	char *mck_str;
+
+    MPI_Query_thread(&mpi_thread_level);
+    if (mpi_thread_level != MPI_THREAD_MULTIPLE) {
+        ARMCII_Warning("ARMCI progress thread requires MPI_THREAD_MULTIPLE (%d); progress thread creation failed.\n",
+                       mpi_thread_level);
+		return;
+	}
+
+	my_async_progress_str = getenv("MY_ASYNC_PROGRESS");
+	if (!my_async_progress_str) {
+		return;
+	}
+	if (atoi(my_async_progress_str) == 0) {
+		return;
+	}
+
+	if (__sync_fetch_and_add(&progress_refc, 1) > 0) {
+		return;
+	}
+
+	if ((rc = MPI_Comm_dup(MPI_COMM_SELF, &progress_comm))) {
+		printf("%s: ERROR: MPI_Comm_dup failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+
+	if ((rc = pthread_attr_init(&attr))) {
+ 		printf("%s: ERROR: pthread_attr_init failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+
+	async_progress_pin_str = getenv("MY_ASYNC_PROGRESS_PIN");
+	if (!async_progress_pin_str) {
+ 		printf("%s: ERROR: MY_ASYNC_PROGRESS_PIN not found\n", __FUNCTION__);
+		goto sub_out;
+	}
+
+	list = async_progress_pin_str;
+	while (1) {
+		token = strsep(&list, ",");
+		if (!token) {
+			break;
+		}
+		progress_cpus[n_progress_cpus++] = atoi(token);
+	}
+
+	rank_str = getenv("PMI_RANK");
+	if (!rank_str) {
+ 		printf("%s: ERROR: PMI_RANK not found\n", __FUNCTION__);
+		goto sub_out;
+	}
+	rank = atoi(rank_str);
+
+	CPU_ZERO(&cpuset);
+	CPU_SET(progress_cpus[rank % n_progress_cpus], &cpuset);
+
+	//printf("%s: rank=%d,n_progress_cpus=%d,progress_cpu=%d\n", __FUNCTION__, rank, n_progress_cpus, progress_cpus[rank % n_progress_cpus]);
+
+	pthread_mutex_init(&mutex, NULL);
+	pthread_cond_init(&cond, NULL);
+
+	mck_str = getenv("MY_ASYNC_PROGRESS_MCK");
+	if (mck_str) {
+		if ((rc = syscall(731, 1, NULL))) {
+			printf("%s: ERROR: util_indicate_clone failed (%d)\n", __FUNCTION__, rc);
+			goto sub_out;
+		}
+	} else {
+		if ((rc = pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset))) {
+			printf("%s: ERROR: pthread_attr_setaffinity_np failed (%d)\n", __FUNCTION__, rc);
+			goto sub_out;
+		}
+	}
+
+	if ((rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))) {
+ 		printf("%s: ERROR: pthread_attr_setdetachstate failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+
+    if ((rc = pthread_create(&thr, &attr, progress_function, NULL))) {
+		printf("%s: ERROR: pthread_create failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+
+ fn_exit:
+	return;
+
+ sub_out:
+	__sync_fetch_and_sub(&progress_refc, 1);
+	goto fn_exit;
+#else
+    int mpi_thread_level;
+
+    MPI_Query_thread(&mpi_thread_level);
+    if (mpi_thread_level != MPI_THREAD_MULTIPLE) {
+        ARMCII_Warning("ARMCI progress thread requires MPI_THREAD_MULTIPLE (%d); progress thread creation failed.\n",
+                       mpi_thread_level);
+		return;
+	}
+
+	progress_active = 1;
+	int rc = pthread_create(&ARMCI_Progress_thread, NULL, &progress_function, &progress_active);
+	if (rc) {
+		ARMCII_Warning("ARMCI progress thread creation failed (%d).\n", rc);
+	}
+#endif
+}
+
+void armci_finalize_async_thread_() {
+#if 1
+	int rc;
+	char *my_async_progress_str;
+	MPI_Request req;
+
+	my_async_progress_str = getenv("MY_ASYNC_PROGRESS");
+	if (!my_async_progress_str) {
+		return;
+	}
+	if (atoi(my_async_progress_str) == 0) {
+		return;
+	}
+
+	if (__sync_sub_and_fetch(&progress_refc, 1) != 0) {
+		return;
+	}
+
+	if ((rc = MPI_Isend(NULL, 0, MPI_CHAR, 0, WAKE_TAG, progress_comm, &req)) != MPI_SUCCESS) {
+		printf("%s: ERROR: MPI_Send failed (%d)\n", __FUNCTION__, rc);
+		return;
+	}
+
+	if ((rc = MPI_Wait(&req, MPI_STATUS_IGNORE)) != MPI_SUCCESS) {
+		printf("%s: ERROR: MPI_Wait failed (%d)\n", __FUNCTION__, rc);
+		return;
+	}
+
+#if 1
+	//printf("%s: before cond_wait\n", __FUNCTION__);
+
+	pthread_mutex_lock(&mutex);
+	while(!flag) {
+		pthread_cond_wait(&cond, &mutex);
+	}
+	flag = 0;
+	pthread_mutex_unlock(&mutex);
+	//printf("%s: after cond_wait\n", __FUNCTION__);
+#else
+	pthread_join(thr, NULL);
+#endif
+
+	if ((rc = MPI_Comm_free(&progress_comm)) != MPI_SUCCESS) {
+		printf("%s: ERROR: MPI_Comm_free failed (%d)\n", __FUNCTION__, rc);
+		return;
+	}
+#else
+	progress_active = 0;
+	int rc = pthread_join(ARMCI_Progress_thread, NULL);
+	if (rc) {
+		ARMCII_Warning("ARMCI progress thread join failed (%d).\n", rc);
+	}
+#endif
+}
 
 /* -- begin weak symbols block -- */
 #if defined(HAVE_PRAGMA_WEAK)
