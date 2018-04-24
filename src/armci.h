@@ -284,6 +284,8 @@ int     PARMCI_Rmw(int op, void *ploc, void *prem, int value, int proc);
 void    parmci_msg_barrier(void);
 void    parmci_msg_group_barrier(ARMCI_Group *group);
 
+void pcontrol_(int *level, char *name);
+
 void armci_init_async_thread_();
 void armci_finalize_async_thread_();
 

@@ -12,7 +12,6 @@
 #include <debug.h>
 #include <gmr.h>
 
-
 /** Fatal error, print the message and abort the program with the provided
   * error code.
   */
@@ -204,4 +203,10 @@ int ARMCII_Getenv_int(const char *varname, int default_value) {
 void ARMCIX_Progress(void)
 {
     gmr_progress();
+}
+
+void pcontrol_(int *level, char *name)
+{
+	//printf("%s: level=%d\n", __FUNCTION__, *level);
+	MPI_Pcontrol(*level, name);
 }
