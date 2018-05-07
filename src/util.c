@@ -2,6 +2,11 @@
  * Copyright (C) 2010. See COPYRIGHT in top-level directory.
  */
 
+/* For mysyscall1 */
+#define _GNU_SOURCE
+#include <unistd.h>
+#include <sys/syscall.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -209,4 +214,9 @@ void pcontrol_(int *level, char *name)
 {
 	//printf("%s: level=%d\n", __FUNCTION__, *level);
 	MPI_Pcontrol(*level, name);
+}
+
+void mysyscall1_(int *num, unsigned long *arg0)
+{
+	syscall(*num, *arg0);
 }
