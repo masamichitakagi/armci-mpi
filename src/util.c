@@ -220,3 +220,8 @@ void mysyscall1_(int *num, unsigned long *arg0)
 {
 	syscall(*num, *arg0);
 }
+
+void myprintf4_(int *ilo, int *ihi, int *jlo, int *jhi)
+{
+	printf("%d-%d,%d-%d\n", *ilo, *ihi, *jlo, *jhi);
+}
