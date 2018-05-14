@@ -180,6 +180,86 @@ if test $enable_weak_symbols = "yes" ; then
     fi
 fi
 
+## UTI
+
+dnl *** PAC_APPEND_FLAG is copied from aclocal_util.m4 of mpich-3.3a2 ***
+dnl Usage: PAC_APPEND_FLAG([-02], [CFLAGS])
+dnl appends the given argument to the specified shell variable unless the
+dnl argument is already present in the variable
+AC_DEFUN([PAC_APPEND_FLAG],[
+	AC_REQUIRE([AC_PROG_FGREP])
+	AS_IF(
+		[echo "$$2" | $FGREP -e "\<$1\>" >/dev/null 2>&1],
+		[echo "$2(='$$2') contains '$1', not appending" >&AS_MESSAGE_LOG_FD],
+		[echo "$2(='$$2') does not contain '$1', appending" >&AS_MESSAGE_LOG_FD
+		$2="$$2 $1"]
+	)
+])
+
+dnl *** PAC_SET_HEADER_LIB_PATH is copied from aclocal_libs.m4 of mpich-3.3a2 ***
+dnl PAC_SET_HEADER_LIB_PATH(with_option,[default_path])
+dnl This macro looks for the --with-xxx=, --with-xxx-include and --with-xxx-lib=
+dnl options and sets the library and include paths.
+dnl
+dnl TODO as written, this macro cannot handle a "with_option" arg that has "-"
+dnl characters in it.  Use AS_TR_SH (and possibly AS_VAR_* macros) to handle
+dnl this case if it ever arises.
+AC_DEFUN([PAC_SET_HEADER_LIB_PATH],[
+    AC_ARG_WITH([$1],
+                [AC_HELP_STRING([--with-$1=PATH],
+                                [specify path where $1 include directory and lib directory can be found])],
+
+                [AS_CASE(["$withval"],
+                         [yes|no|''],
+                         [AC_MSG_WARN([--with[out]-$1=PATH expects a valid PATH])
+                          with_$1=""])],
+                [with_$1=$2])
+    AC_ARG_WITH([$1-include],
+                [AC_HELP_STRING([--with-$1-include=PATH],
+                                [specify path where $1 include directory can be found])],
+                [AS_CASE(["$withval"],
+                         [yes|no|''],
+                         [AC_MSG_WARN([--with[out]-$1-include=PATH expects a valid PATH])
+                          with_$1_include=""])],
+                [])
+    AC_ARG_WITH([$1-lib],
+                [AC_HELP_STRING([--with-$1-lib=PATH],
+                                [specify path where $1 lib directory can be found])],
+                [AS_CASE(["$withval"],
+                         [yes|no|''],
+                         [AC_MSG_WARN([--with[out]-$1-lib=PATH expects a valid PATH])
+                          with_$1_lib=""])],
+                [])
+
+    # The args have been sanitized into empty/non-empty values above.
+    # Now append -I/-L args to CPPFLAGS/LDFLAGS, with more specific options
+    # taking priority
+
+    AS_IF([test -n "${with_$1_include}"],
+          [PAC_APPEND_FLAG([-I${with_$1_include}],[CPPFLAGS])],
+          [AS_IF([test -n "${with_$1}"],
+                 [PAC_APPEND_FLAG([-I${with_$1}/include],[CPPFLAGS])])])
+
+    AS_IF([test -n "${with_$1_lib}"],
+          [PAC_APPEND_FLAG([-L${with_$1_lib}],[LDFLAGS])],
+          [AS_IF([test -n "${with_$1}"],
+                 dnl is adding lib64 by default really the right thing to do?  What if
+                 dnl we are on a 32-bit host that happens to have both lib dirs available?
+                 [PAC_APPEND_FLAG([-L${with_$1}/lib],[LDFLAGS])
+                  AS_IF([test -d "${with_$1}/lib64"],
+		        [PAC_APPEND_FLAG([-L${with_$1}/lib64],[LDFLAGS])])
+                 ])
+          ])
+
+    AS_IF([test -n "${with_$1_include}" ||
+           test -n "${with_$1_lib}" ||
+	   test -n "${with_$1}"],
+	  [AC_DEFINE(WITH_UTI,1,[Defined if UTI is enabled])],
+	  [])
+])
+
+PAC_SET_HEADER_LIB_PATH(uti)
+
 ## Documentation
 AC_PATH_PROG([DOXYGEN],[doxygen],,$PATH)
 AC_SUBST(DOXYGEN)

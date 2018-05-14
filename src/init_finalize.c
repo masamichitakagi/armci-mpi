@@ -39,7 +39,9 @@
 #endif
 
 #include <unistd.h> /* for syscall() */
-//#include <uti.h> /* for async progress */
+#ifdef WITH_UTI
+#include <uti.h> /* for async progress */
+#endif
 
 int progress_active;
 pthread_t ARMCI_Progress_thread;
@@ -448,6 +450,54 @@ void armci_init_async_thread_() {
 	pthread_mutex_init(&mutex, NULL);
 	pthread_cond_init(&cond, NULL);
 
+#ifdef WITH_UTI
+	uti_attr_t uti_attr;
+	rc = uti_attr_init(&uti_attr);
+	if (rc) {
+		printf("%s: ERROR: uti_attr_init failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+#if 0
+	/* Give a hint that it's beneficial to put the thread
+	 * on the same NUMA-node as the creator */
+	rc = UTI_ATTR_SAME_NUMA_DOMAIN(&uti_attr);
+	if (rc) {
+		printf("%s: ERROR: UTI_ATTR_SAME_NUMA_DOMAIN failed (%d)\n", __FUNCTION__, rc);
+		goto uti_destroy_and_out;
+	}
+	
+	/* Give a hint that the thread repeatedly monitors a device
+	 * using CPU. */
+	rc = UTI_ATTR_CPU_INTENSIVE(&uti_attr);
+	if (rc) {
+		printf("%s: ERROR: UTI_ATTR_CPU_INTENSIVE failed (%d)\n", __FUNCTION__, rc);
+		goto uti_destroy_and_out;
+	}
+	
+	/* Give a hint that it's beneficial to prioritize it in scheduling. */
+	rc = UTI_ATTR_HIGH_PRIORITY(&uti_attr);
+	if (rc) {
+		printf("%s: ERROR: UTI_ATTR_HIGH_PRIORITY failed (%d)\n", __FUNCTION__, rc);
+		goto uti_destroy_and_out;
+	}
+#endif
+	
+	if ((rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))) {
+		printf("%s: ERROR: pthread_attr_setdetachstate failed (%d)\n", __FUNCTION__, rc);
+		goto uti_destroy_and_out;
+	}
+	
+	rc = uti_pthread_create(&thr, &attr, progress_function, NULL, &uti_attr);
+	if (rc) {
+		goto uti_destroy_and_out;
+	}
+	
+	rc = uti_attr_destroy(&uti_attr);
+	if (rc) {
+		printf("%s: ERROR: uti_attr_destroy failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+#else
 	mck_str = getenv("MY_ASYNC_PROGRESS_MCK");
 	if (mck_str) {
 		if ((rc = syscall(731, 1, NULL))) {
@@ -459,20 +509,30 @@ void armci_init_async_thread_() {
 			printf("%s: ERROR: pthread_attr_setaffinity_np failed (%d)\n", __FUNCTION__, rc);
 			goto sub_out;
 		}
+
 	}
 
 	if ((rc = pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED))) {
- 		printf("%s: ERROR: pthread_attr_setdetachstate failed (%d)\n", __FUNCTION__, rc);
+		printf("%s: ERROR: pthread_attr_setdetachstate failed (%d)\n", __FUNCTION__, rc);
 		goto sub_out;
 	}
-
-    if ((rc = pthread_create(&thr, &attr, progress_function, NULL))) {
+	
+	if ((rc = pthread_create(&thr, &attr, progress_function, NULL))) {
 		printf("%s: ERROR: pthread_create failed (%d)\n", __FUNCTION__, rc);
 		goto sub_out;
 	}
-
+#endif	
  fn_exit:
 	return;
+
+#ifdef WITH_UTI
+ uti_destroy_and_out:
+	rc = uti_attr_destroy(&uti_attr);
+	if (rc) {
+		printf("%s: ERROR: uti_attr_destroy failed (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+#endif
 
  sub_out:
 	__sync_fetch_and_sub(&progress_refc, 1);
