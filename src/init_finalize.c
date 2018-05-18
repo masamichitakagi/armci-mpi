@@ -49,6 +49,7 @@ pthread_t ARMCI_Progress_thread;
 static pthread_t thr;
 static pthread_mutex_t mutex;
 static pthread_cond_t cond;
+static pthread_barrier_t bar;
 static volatile int flag;
 
 static MPI_Comm progress_comm;
@@ -61,6 +62,12 @@ static void * progress_function(void * arg)
 	int rc;
 	MPI_Request req;
 	int completed;
+
+	rc = pthread_barrier_wait(&bar);
+	if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
+		printf("%s: ERROR: pthread_barrier_wait (%d)\n", __FUNCTION__, rc);
+	}
+
 	if ((rc = MPI_Irecv(NULL, 0, MPI_CHAR, 0, WAKE_TAG, progress_comm, &req)) != MPI_SUCCESS) {
 		printf("%s: ERROR: MPI_Irecv failed (%d)\n", __FUNCTION__, rc);
 	}
@@ -450,6 +457,11 @@ void armci_init_async_thread_() {
 	pthread_mutex_init(&mutex, NULL);
 	pthread_cond_init(&cond, NULL);
 
+	if ((rc = pthread_barrier_init(&bar, NULL, 2))) {
+		printf("%s: ERROR: pthread_barrier_init (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+
 #ifdef WITH_UTI
 	uti_attr_t uti_attr;
 	rc = uti_attr_init(&uti_attr);
@@ -521,7 +533,14 @@ void armci_init_async_thread_() {
 		printf("%s: ERROR: pthread_create failed (%d)\n", __FUNCTION__, rc);
 		goto sub_out;
 	}
-#endif	
+#endif
+
+	rc = pthread_barrier_wait(&bar);
+	if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD) {
+		printf("%s: ERROR: pthread_barrier_wait (%d)\n", __FUNCTION__, rc);
+		goto sub_out;
+	}
+
  fn_exit:
 	return;
 
